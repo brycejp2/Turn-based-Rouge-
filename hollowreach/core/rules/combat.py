@@ -32,35 +32,64 @@ class CombatResult:
 
 
 def melee_attack(attacker: Actor, defender: Actor, rng: Rng) -> CombatResult:
-    to_hit = attacker.melee_to_hit + rng.rnd(20)
-    dv = defender.dv
+    """Resolve one melee *action*, which may land several strikes when the
+    attacker's weapon proficiency / Dexterity grant extra attacks (§6.3)."""
+    strikes = 1 + max(0, getattr(attacker, "extra_attacks", 0))
+    total = 0
+    hits = 0
+    any_crit = False
+    killed = False
 
-    if to_hit <= dv:
+    for _ in range(strikes):
+        if not defender.is_alive:
+            break
+        struck, dealt, crit = _single_strike(attacker, defender, rng)
+        if struck:
+            hits += 1
+            total += dealt
+            any_crit = any_crit or crit
+        if not defender.is_alive:
+            killed = True
+            break
+
+    if hits == 0:
         return CombatResult(
             attacker.name, defender.name, hit=False, damage=0, killed=False,
             message=f"{_cap(attacker.name)} misses {defender.name}.",
         )
 
-    # Damage: weapon dice + strength bonus, criticals on a wide margin.
-    critical = to_hit >= dv + 20 and rng.one_in(4)
+    if strikes > 1 and hits > 1:
+        body = f"{_cap(attacker.name)} hits {defender.name} {hits}× ({total})."
+    else:
+        verb = "critically hits" if any_crit else "hits"
+        body = f"{_cap(attacker.name)} {verb} {defender.name} ({total})."
+    if killed:
+        body += f" {_cap(defender.name)} dies!"
+    return CombatResult(
+        attacker.name, defender.name, hit=True, damage=total,
+        killed=killed, critical=any_crit, message=body,
+    )
+
+
+def _single_strike(attacker: Actor, defender: Actor, rng: Rng):
+    """One strike. Returns (hit, damage_dealt, was_critical)."""
+    to_hit = attacker.melee_to_hit + rng.rnd(20)
+    dv = defender.dv
+    if to_hit <= dv:
+        return False, 0, False
+
+    # Criticals: a wide to-hit margin, or the attacker's flat crit bonus
+    # (Find Weakness skill, Monk precision) (§6.2).
+    crit_bonus = getattr(attacker, "crit_bonus", 0)
+    critical = (to_hit >= dv + 20 and rng.one_in(4)) or rng.chance(crit_bonus)
     raw = rng.roll(attacker.weapon_dice) + attacker.melee_damage_bonus
     if critical:
         raw *= 2
     raw = max(1, raw)
 
-    # PV soak — a hit always deals at least 1.
-    soaked = max(1, raw - defender.pv)
+    soaked = max(1, raw - defender.pv)   # a blow always stings a little
     dealt = defender.take_damage(soaked)
-    killed = not defender.is_alive
-
-    verb = "critically hits" if critical else "hits"
-    msg = f"{_cap(attacker.name)} {verb} {defender.name} ({dealt})."
-    if killed:
-        msg += f" {_cap(defender.name)} dies!"
-    return CombatResult(
-        attacker.name, defender.name, hit=True, damage=dealt,
-        killed=killed, critical=critical, message=msg,
-    )
+    return True, dealt, critical
 
 
 def _cap(name: str) -> str:

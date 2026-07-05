@@ -297,7 +297,7 @@ def _draw_main(stdscr, game):
     for i, msg in enumerate(game.log.recent(4)):
         _safe_add(stdscr, h + 4 + i, 0, msg)
     _safe_add(stdscr, h + 9, 0,
-              "hjkl/yubn move  >< stairs  g get  i inv  w wield  T takeoff  "
+              "hjkl/yubn move  >< stairs  g get  i inv  C char  w wield  T takeoff  "
               "q quaff  r read  d drop  . wait  Q quit")
     stdscr.refresh()
 
@@ -317,6 +317,9 @@ def _handle_key(stdscr, game, key):
         return ("pickup", None)
     if ch == "i":
         _show_inventory(stdscr, game)
+        return None
+    if ch == "C":
+        _show_character(stdscr, game)
         return None
     if ch == "q":
         it = _select_item(stdscr, game, {"potion"}, "Quaff which potion?")
@@ -404,6 +407,55 @@ def _show_inventory(stdscr, game):
     cap = 800 + game.pc.actor.attributes.St * 120
     _safe_add(stdscr, row + 1, 0,
               f"Weight: {game.pc.inventory.total_weight()} / {cap}")
+    stdscr.refresh()
+    stdscr.getch()
+
+
+def _show_character(stdscr, game):
+    from hollowreach.core.model.attributes import ATTRIBUTE_KEYS, ATTRIBUTE_NAMES
+    from hollowreach.core.rules.proficiency import tier_name
+    from hollowreach.content.warps import WARPS
+    pc, a = game.pc, game.pc.actor
+    stdscr.erase()
+    row = 0
+    def line(text, indent=0):
+        nonlocal row
+        _safe_add(stdscr, row, indent, text)
+        row += 1
+
+    line(f"{a.name} — level {a.char_level} {pc.race.name} {pc.cls.name} "
+         f"(born under {pc.sign.name})")
+    line(f"Alignment: {pc.alignment}    XP: {pc.xp}")
+    row += 1
+    line("Attributes:")
+    attr_str = "   ".join(f"{k} {a.attributes.value(k):>2}" for k in ATTRIBUTE_KEYS)
+    line(attr_str, 2)
+    row += 1
+    line(f"Combat:  DV {a.dv}   PV {a.pv}   to-hit {a.melee_to_hit}   "
+         f"weapon {a.weapon_dice}{'+'+str(a.melee_damage_bonus) if a.melee_damage_bonus else ''}   "
+         f"attacks {1 + a.extra_attacks}   crit +{a.crit_bonus}%")
+    line(f"Speed {a.speed}   HP {a.hp}/{a.max_hp}   PP {a.pp}/{a.max_pp}")
+    row += 1
+    line("Weapon proficiencies:")
+    profs = [(c, t) for c, t in pc.proficiencies.tier.items() if t > 0]
+    if profs:
+        for cat, tier in profs:
+            line(f"{cat:<8} {tier_name(tier)}", 2)
+    else:
+        line("(none trained yet)", 2)
+    row += 1
+    line("Skills:")
+    listing = sorted(pc.skills.items())
+    for i in range(0, len(listing), 3):
+        chunk = listing[i:i + 3]
+        line("   ".join(f"{n} {v:>3}" for n, v in chunk), 2)
+    if pc.warps:
+        row += 1
+        line("The Hollowing has warped you:")
+        for wid in pc.warps:
+            line(f"- {WARPS[wid].name} ({WARPS[wid].note})", 2)
+    row += 1
+    line("(press any key to return)")
     stdscr.refresh()
     stdscr.getch()
 

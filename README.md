@@ -34,7 +34,7 @@ python3 main.py --demo 400 --seed 7
 python3 -m unittest discover -s tests -v
 ```
 
-In-game keys: `hjkl` + `yubn` move/attack, `>`/`<` stairs, `.` wait, `Q` quit.
+In-game keys: `hjkl`/`yubn` move/attack, `>`/`<` stairs, `g` get, `i` inventory, `C` character, `w` wield/wear, `T` take off, `q` quaff, `r` read, `d` drop, `.` wait, `Q` quit.
 
 ### Windows 11
 
@@ -61,8 +61,24 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
 - **Characters** — nine attributes (base/potential/modified, 1–99);
   Toughness drives max HP, Mana drives max PP; playable ancestries with
   attribute mods, XP multipliers and traits; twelve birth **omens** (e.g.
-  The Hawk +10 speed, The Bastion +PV/To/Wi); starting skills; XP scaled
+  The Hawk +10 speed, The Bastion +PV/To/Wi); XP scaled
   by relative speed; per-character monster memory.
+- **Build variety** — the systems that make two heroes play differently:
+  - **Weapon proficiencies** (marks): each weapon category (sword, axe,
+    blunt, spear, dagger, unarmed) trains as you fight with it, climbing
+    tiers (basic → master → mythic) for cumulative to-hit/damage/DV and
+    **extra attacks per turn**. Mark gain scales with class and the Blade
+    omen, so a Fighter masters a blade far faster than a Wizard.
+  - **Class powers** at levels 6/12/18/25+: passive, per-level and
+    one-time gifts that define each class (Fighter's Flurry extra attack,
+    Barbarian's speed & savage blows, Monk's precise strikes, Healer's
+    recovery, Priest's discerning eye…).
+  - **Skills** that advance on level-up and through use, wired into the
+    math: Athletics → speed, Dodge/Alertness → DV, Find Weakness → crit.
+  - **Natural regeneration** driven by ancestry, the Healing skill, the
+    Beacon omen and Healer powers.
+  - A **character screen** (`C`) shows attributes, proficiencies, skills,
+    combat stats and active Warps.
 - **The Hollowing (Blight clock)** — the signature pressure mechanic.
   In the deep places hidden **Blight** accrues every turn at a rate that
   climbs with depth; cross a threshold and the Hollowing inflicts a
@@ -96,12 +112,13 @@ hollowreach/
                     Item, Inventory, Equipment
   core/world/       Level (persistent grid + fog), tiles, FOV
   core/generation/  random dungeon generators, loot rolls
-  core/rules/       combat, calendar/lighting, AI, identification, consumables, blight
+  core/rules/       combat, AI, calendar, identification, consumables, blight,
+                    proficiency, class powers, skills, regen
   content/          world.py + data tables: ancestries, classes, omens, monsters, items, warps
   ui/               ASCII renderer + message log
   persistence/      single-save permadeath service
 main.py             entry point (interactive + headless demo)
-tests/              64 unittest tests
+tests/              77 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -112,7 +129,7 @@ New content is data in `content/`; new systems are resolvers in
 
 **Game depth**
 1. ~~Inventory, equip slots, BUC status, identification, items/potions/scrolls~~ ✅ **done**
-2. Skills + weapon proficiencies + the full class-power system
+2. ~~Skills + weapon proficiencies + the full class-power system~~ ✅ **done**
 3. Magic (PP, spell knowledge/power, spell list) + mind powers
 4. Overworld, towns/NPCs, shops, quests
 5. Altars / piety / alignment / prayer / crowning (the divine economy)
@@ -129,7 +146,7 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 64 tests covering the dice
+`python3 -m unittest discover -s tests` runs 77 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system

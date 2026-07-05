@@ -20,7 +20,7 @@ from .core.world import tile as tiles
 from .core.world.fov import compute_fov
 from .core.generation.dungeon import generate_level
 from .core.model.character import build_player, PlayerCharacter
-from .core.rules import combat, ai
+from .core.rules import combat, ai, skills, regen
 from .core.rules.calendar import Calendar, sight_radius
 from .core.rules.identification import IdentificationService
 from .core.rules.consumables import use_consumable
@@ -121,6 +121,7 @@ class Game:
                     if not self.running:
                         return
                     continue
+                self._advance_regen()
                 self._advance_blight()
                 self._update_fov()
                 self.scheduler.reschedule(self.pc.actor, STANDARD_ACTION_COST)
@@ -178,6 +179,8 @@ class Game:
         if item is None:
             self.log.add("There is nothing here to pick up.")
             return False
+        if self.pc.auto_buc:
+            item.buc_known = True   # Priest's Discerning eye (§5.3)
         letter = self.pc.inventory.add(item)
         if letter is None:
             level.add_item(pc.x, pc.y, item)  # put it back
@@ -208,7 +211,7 @@ class Game:
             self.pc.inventory.remove(item)
             if displaced is not None:
                 self.pc.inventory.add(displaced)
-            self.pc.equipment.recompute(self.pc.actor)
+            self.pc.refresh_combat()   # weapon change updates proficiency too
             self.pc.update_encumbrance()
         return ok
 
@@ -217,7 +220,7 @@ class Game:
         self.log.add(msg)
         if ok:
             self.pc.inventory.add(item)
-            self.pc.equipment.recompute(self.pc.actor)
+            self.pc.refresh_combat()
             self.pc.update_encumbrance()
         return ok
 
@@ -240,6 +243,8 @@ class Game:
         if target is not None and target is not pc and target.is_alive:
             result = combat.melee_attack(pc, target, self.rng)
             self.log.add(result.message)
+            if result.hit:
+                self._train_weapon(pc)
             if result.killed:
                 self._reward_kill(target)
             return True
@@ -310,14 +315,29 @@ class Game:
         # XP scales with relative speed (§6.1).
         xp = int(xp * (target.speed / max(1, self.pc.actor.speed)))
         self.pc.note_kill(target.monster_id)
-        if self.pc.award_xp(max(1, xp)):
-            self.log.add(f"Welcome to level {self.pc.actor.char_level}!")
+        for msg in self.pc.award_xp(max(1, xp)):
+            self.log.add(msg)
         self.scheduler.remove(target)
         self.levels[self.depth].remove_actor(target)
+
+    def _train_weapon(self, pc_actor) -> None:
+        """Award weapon-proficiency marks (and train combat skills) on a hit."""
+        category = self.pc.proficiencies.category_of(self.pc)
+        msg = self.pc.proficiencies.award(self.pc, category)
+        trained = skills.train_on_use(self.pc, self.rng)
+        if msg or trained:
+            self.pc.refresh_combat()
+        if msg:
+            self.log.add(msg)
+
+    def _advance_regen(self) -> None:
+        regen.advance_regen(self.pc)
 
     def _advance_blight(self) -> None:
         """Accrue the Hollowing for this turn and surface any Warps (§9)."""
         events = self.blight.on_turn(self.pc, self.depth)
+        if events:
+            self.pc.refresh_combat()   # Warps changed attributes
         for event in events:
             self.log.add(event.message)
             if event.kind == "consumed":

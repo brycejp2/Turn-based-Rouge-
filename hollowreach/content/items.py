@@ -20,17 +20,18 @@ from ..core.model.item import (
 # -- weapons ----------------------------------------------------------------
 _WEAPONS = [
     ItemBase("dagger", "dagger", "weapon", "(", 10, SLOT_WEAPON,
-             dmg_dice="1d4", to_hit=1, price=10),
+             dmg_dice="1d4", to_hit=1, price=10, weapon_skill="dagger"),
     ItemBase("short_sword", "short sword", "weapon", "(", 25, SLOT_WEAPON,
-             dmg_dice="1d6", to_hit=1, price=25),
+             dmg_dice="1d6", to_hit=1, price=25, weapon_skill="sword"),
     ItemBase("long_sword", "long sword", "weapon", "(", 40, SLOT_WEAPON,
-             dmg_dice="1d8", price=60),
+             dmg_dice="1d8", price=60, weapon_skill="sword"),
     ItemBase("mace", "mace", "weapon", "(", 55, SLOT_WEAPON,
-             dmg_dice="1d10", to_hit=-1, price=45),
+             dmg_dice="1d10", to_hit=-1, price=45, weapon_skill="blunt"),
     ItemBase("battle_axe", "battle axe", "weapon", "(", 75, SLOT_WEAPON,
-             dmg_dice="1d12", to_hit=-1, two_handed=True, price=80),
+             dmg_dice="1d12", to_hit=-1, two_handed=True, price=80,
+             weapon_skill="axe"),
     ItemBase("spear", "spear", "weapon", "(", 45, SLOT_WEAPON,
-             dmg_dice="1d8", to_hit=1, price=35),
+             dmg_dice="1d8", to_hit=1, price=35, weapon_skill="spear"),
 ]
 
 # -- armour -----------------------------------------------------------------

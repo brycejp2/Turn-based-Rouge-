@@ -61,6 +61,7 @@ class ItemBase:
     price: int = 0
     effect: "str | None" = None   # consumable effect id
     plural: "str | None" = None
+    weapon_skill: "str | None" = None   # proficiency category for weapons
 
     def pluralized(self) -> str:
         if self.plural:

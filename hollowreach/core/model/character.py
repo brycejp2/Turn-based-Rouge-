@@ -23,6 +23,9 @@ from .inventory import (
     Inventory, Equipment, carrying_capacity, encumbrance_penalty,
 )
 from ..generation.loot import make_item
+from ..rules.proficiency import Proficiencies
+from ..rules.classpowers import apply_level_powers
+from ..rules.skills import apply_skill_bonuses, gain_level_skills
 from ..engine.rng import Rng
 from ...content.races import RACES, RaceDef
 from ...content.classes import CLASSES, ClassDef
@@ -61,6 +64,21 @@ class PlayerCharacter:
         # The Hollowing (see core/rules/blight.py).
         self.blight_points: float = 0.0
         self.warps: list[str] = []
+        # Build systems (skills, proficiencies, class powers, regen).
+        self.proficiencies = Proficiencies()
+        self.granted_powers: set = set()
+        self.regen_mult: float = 1.0
+        self.pp_regen_mult: float = 1.0
+        self.hp_regen_counter: float = 0.0
+        self.pp_regen_counter: float = 0.0
+        self.auto_buc: bool = False
+        self.spell_cost_mult: float = 1.0
+
+    def refresh_combat(self) -> None:
+        """Re-fold equipment, proficiency and skills into the actor's stats."""
+        self.equipment.recompute(self.actor)
+        self.proficiencies.apply_to_actor(self)
+        apply_skill_bonuses(self)
 
     def update_encumbrance(self) -> None:
         """Recompute the carry-weight speed penalty (§5.1)."""
@@ -76,18 +94,20 @@ class PlayerCharacter:
     def cls_xp_bias(self) -> float:
         return 1.0
 
-    def award_xp(self, amount: int) -> bool:
-        """Add XP (with the Learning bonus) and level up if earned."""
+    def award_xp(self, amount: int) -> list:
+        """Add XP (with the Learning bonus) and level up if earned.
+
+        Returns a list of level-up / class-power messages (empty if no
+        level gained)."""
         le = self.actor.attributes.Le
         amount = int(amount * (1 + le / 1000.0))
         self.xp += amount
-        leveled = False
+        messages: list = []
         while self.xp >= self.xp_to_next_level():
-            self._level_up()
-            leveled = True
-        return leveled
+            messages.extend(self._level_up())
+        return messages
 
-    def _level_up(self) -> None:
+    def _level_up(self) -> list:
         a = self.actor
         a.char_level += 1
         # HP/PP gains driven by class dice plus To/Ma (§6.1).
@@ -97,6 +117,11 @@ class PlayerCharacter:
         a.hp += hp_gain
         a.max_pp += pp_gain
         a.pp += pp_gain
+        messages = [f"Welcome to level {a.char_level}!"]
+        messages.extend(apply_level_powers(self))   # class powers (§5.3)
+        gain_level_skills(self, _rng)               # skill increases (§6.2)
+        self.refresh_combat()
+        return messages
 
     def note_kill(self, monster_id: str) -> None:
         rec = self.monster_memory.setdefault(monster_id, MemoryRecord(monster_id))
@@ -147,6 +172,8 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
         actor.stoneskin = 3
 
     pc = PlayerCharacter(actor, race, cls, sign, gender)
+    # Omen regeneration bonus (e.g. the Beacon).
+    pc.regen_mult = sign.effects.get("hp_regen_mult", 1.0)
 
     # Assemble starting skills: universal + race + class + sign grants (§5.2).
     skill_names = ["Climbing", "First Aid", "Haggling", "Listening"]
@@ -158,15 +185,12 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
     for skill in skill_names:
         pc.skills.setdefault(skill, _starting_skill_value(skill, attrs, rng))
 
-    # Level-1 class combat contributions.
+    # Level-1 unarmed classes scale DV with level (Monk, §7.2).
     if cls.archetype == "unarmed":
-        actor.unarmed_dv_per_level = 2 / 3   # Monk (§7.2)
-    if "Dodge" in pc.skills:
-        actor.dodge_dv += 1
-    if "Alertness" in pc.skills:
-        actor.alertness_dv += 1
+        actor.unarmed_dv_per_level = 2 / 3
 
     _grant_starting_gear(pc, rng)
+    pc.refresh_combat()   # fold skills/proficiency/equipment into the actor
     return pc
 
 

@@ -51,7 +51,9 @@ CLASSES = {
         archetype="melee",
         class_powers=(
             ClassPower(6, "passive", "Tension", {"to_hit": 3}),
-            ClassPower(12, "per_level", "Melee bonus", {"melee_dmg": 1}),
+            ClassPower(12, "per_level", "Melee mastery", {"melee_dmg": 1}),
+            ClassPower(18, "passive", "Flurry", {"extra_attack": 1}),
+            ClassPower(25, "passive", "Iron discipline", {"to_hit": 3, "dv": 2}),
         ),
     ),
     "barbarian": ClassDef(
@@ -62,7 +64,9 @@ CLASSES = {
         archetype="melee",
         class_powers=(
             ClassPower(6, "passive", "Speed of the wild", {"speed": 10}),
-            ClassPower(12, "passive", "Damage bonus vs many foes", {}),
+            ClassPower(12, "passive", "Savage blows", {"class_dmg": 3}),
+            ClassPower(18, "passive", "Thick sinews", {"To": 2}),
+            ClassPower(25, "passive", "Wild frenzy", {"extra_attack": 1}),
         ),
     ),
     "wizard": ClassDef(
@@ -73,6 +77,8 @@ CLASSES = {
         archetype="arcane",
         class_powers=(
             ClassPower(6, "passive", "Cheaper arcane spells", {"spell_cost_mult": 0.9}),
+            ClassPower(12, "passive", "Deep well", {"Ma": 2}),
+            ClassPower(18, "passive", "Arcane insight", {"Ma": 2, "Le": 1}),
         ),
     ),
     "priest": ClassDef(
@@ -82,7 +88,9 @@ CLASSES = {
         start_skills=("Concentration", "Literacy", "First Aid", "Healing"),
         archetype="clerical",
         class_powers=(
-            ClassPower(6, "passive", "Detect Item Status", {"auto_buc": True}),
+            ClassPower(6, "passive", "Discerning eye", {"auto_buc": True}),
+            ClassPower(12, "passive", "Blessed strength", {"class_dmg": 2}),
+            ClassPower(18, "passive", "Steadfast", {"Wi": 2, "pv": 1}),
         ),
     ),
     "healer": ClassDef(
@@ -92,8 +100,9 @@ CLASSES = {
         start_skills=("Healing", "Herbalism", "First Aid", "Literacy", "Concentration"),
         archetype="melee",
         class_powers=(
-            ClassPower(6, "passive", "Regeneration x2", {"hp_regen_mult": 0.5}),
-            ClassPower(12, "passive", "Regeneration x3", {"hp_regen_mult": 0.33}),
+            ClassPower(6, "passive", "Quick recovery", {"hp_regen_mult": 0.5}),
+            ClassPower(12, "passive", "Swift recovery", {"hp_regen_mult": 0.33}),
+            ClassPower(18, "passive", "Hardy body", {"To": 3}),
         ),
     ),
     "monk": ClassDef(
@@ -103,7 +112,9 @@ CLASSES = {
         start_skills=("Athletics", "Dodge", "Stealth", "Tactics", "Climbing"),
         archetype="unarmed",
         class_powers=(
-            ClassPower(6, "activated", "Circular kick", {"ep_cost": 2500}),
+            ClassPower(6, "passive", "Flowing guard", {"dv": 3}),
+            ClassPower(12, "passive", "Rain of blows", {"extra_attack": 1}),
+            ClassPower(18, "passive", "Precise strikes", {"crit_bonus": 10}),
         ),
     ),
 }

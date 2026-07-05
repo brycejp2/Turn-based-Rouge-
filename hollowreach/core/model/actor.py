@@ -64,6 +64,29 @@ class Actor:
     night_vision: bool = False
     unarmed: bool = True                # True while wielding no weapon
 
+    # Class-power contributions (applied once at level breakpoints; never
+    # reset — they accumulate permanently).
+    class_dv: int = 0
+    class_pv: int = 0
+    class_to_hit: int = 0
+    class_dmg: int = 0
+    per_level_dmg: int = 0              # accrues from per-level class powers
+    class_extra_attacks: int = 0
+    class_crit: int = 0
+
+    # Weapon-proficiency contributions for the wielded category (recomputed
+    # by refresh_combat whenever the weapon or proficiency changes).
+    prof_to_hit: int = 0
+    prof_dmg: int = 0
+    prof_dv: int = 0
+
+    # Skill-derived contributions (recomputed by refresh_combat).
+    athletics_speed: int = 0
+
+    # Final computed combat values (set by refresh_combat).
+    extra_attacks: int = 0             # extra melee strikes per action
+    crit_bonus: int = 0                # +% critical chance
+
     alive: bool = True
     hostile: bool = True
     corruptions: int = 0
@@ -73,7 +96,7 @@ class Actor:
     # -- scheduler contract ----------------------------------------------
     @property
     def speed(self) -> int:
-        spd = self.base_speed - self.encumbrance_penalty
+        spd = self.base_speed - self.encumbrance_penalty + self.athletics_speed
         return max(1, spd)
 
     @property
@@ -88,7 +111,7 @@ class Actor:
         # Truncate toward zero to match the reference integer arithmetic.
         dv = int((dx - 12) / 2) + int((dx - 9) / 2)
         dv += self.armor_dv + self.dodge_dv + self.alertness_dv
-        dv += self.tactics_dv + self.warp_dv
+        dv += self.tactics_dv + self.warp_dv + self.class_dv + self.prof_dv
         if self.unarmed_dv_per_level and not self._has_body_armor():
             dv += int(self.char_level * self.unarmed_dv_per_level)
         return max(0, dv)
@@ -98,7 +121,7 @@ class Actor:
         """Protection Value — damage soak (§7.2)."""
         to = self.attributes.To
         pv = min(20, (to - 18) // 2) if to > 18 else 0
-        pv += self.armor_pv + self.stoneskin + self.warp_pv
+        pv += self.armor_pv + self.stoneskin + self.warp_pv + self.class_pv
         if self.blessed:
             pv += 1 + (self.char_level // 25)  # +2 at L25, +3 at L50
         return max(0, pv)
@@ -111,6 +134,7 @@ class Actor:
         bonus = self.char_level
         bonus += (dx - 10) // 3 + (st - 10) // 4
         bonus += self.weapon_to_hit + self.tactics_to_hit
+        bonus += self.class_to_hit + self.prof_to_hit
         return bonus
 
     @property
@@ -124,6 +148,7 @@ class Actor:
             bonus -= 6 - st
         if self.unarmed:
             bonus += self.warp_unarmed_dmg
+        bonus += self.class_dmg + self.per_level_dmg + self.prof_dmg
         return bonus + self.weapon_dmg_bonus
 
     def _has_body_armor(self) -> bool:
