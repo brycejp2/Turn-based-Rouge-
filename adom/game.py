@@ -1,0 +1,252 @@
+"""Game orchestration — wires the subsystems onto the turn scheduler.
+
+The :class:`Game` owns the energy scheduler and drives the plan's core
+loop (§3.1): pop the actor whose next-action time is soonest, let it act,
+charge the action's EP cost, and requeue it.  The PC's actions come from
+the front-end (interactive or demo/AI); monsters use ``core.rules.ai``.
+
+Global clocks that subscribe to the scheduler (calendar/lighting here;
+hunger, corruption, piety in later milestones — §17.3) advance off the
+same time base, so speed correctly dilates everything.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from .core.engine.rng import Rng
+from .core.engine.scheduler import Scheduler, STANDARD_ACTION_COST
+from .core.world import tile as tiles
+from .core.world.fov import compute_fov
+from .core.generation.dungeon import generate_level
+from .core.model.character import build_player, PlayerCharacter
+from .core.rules import combat, ai
+from .core.rules.calendar import Calendar, sight_radius
+from .ui.render import MessageLog
+from .persistence.save import SaveService
+
+
+# Directional deltas for movement commands.
+DIRECTIONS = {
+    "h": (-1, 0), "j": (0, 1), "k": (0, -1), "l": (1, 0),
+    "y": (-1, -1), "u": (1, -1), "b": (-1, 1), "n": (1, 1),
+    ".": (0, 0),
+}
+
+
+@dataclass
+class Game:
+    pc: PlayerCharacter
+    rng: Rng
+    seed: int
+    save: SaveService = field(default_factory=SaveService)
+
+    def __post_init__(self):
+        self.calendar = Calendar()
+        # Scheduler and calendar share one time base; start mid-morning so
+        # the opening level is lit by daylight (§4.1, §4.2).
+        self.scheduler = Scheduler(self.calendar.ticks)
+        self.log = MessageLog()
+        self.levels: dict[int, object] = {}
+        self.visible: set = set()
+        self.running = True
+        self.depth = 0
+
+    # -- setup ------------------------------------------------------------
+    @classmethod
+    def new(cls, pc: PlayerCharacter, rng: Rng, seed: int,
+            permadeath: bool = True) -> "Game":
+        game = cls(pc=pc, rng=rng, seed=seed,
+                   save=SaveService(permadeath=permadeath))
+        game._enter_level(1, going_down=True)
+        game.log.add(f"Welcome to the Drakalor Chain, {pc.actor.name}.")
+        game.log.add("(A Chaos Gate has torn open. Descend and close it.)")
+        game._schedule_all()
+        game._update_fov()
+        return game
+
+    def _enter_level(self, depth: int, going_down: bool) -> None:
+        if depth not in self.levels:
+            # Deterministic per-depth seed so the world is reproducible.
+            level_rng = Rng(self.seed * 1000 + depth)
+            self.levels[depth] = generate_level(level_rng, depth=depth)
+        level = self.levels[depth]
+        self.depth = depth
+
+        # Place the PC on the appropriate staircase.
+        target = level.stairs_up if going_down else level.stairs_down
+        if target is None:
+            target = (level.rooms[0].cx, level.rooms[0].cy)
+        self.pc.actor.x, self.pc.actor.y = target
+        if self.pc.actor not in level.actors:
+            level.add_actor(self.pc.actor)
+
+    def _schedule_all(self) -> None:
+        self.scheduler = Scheduler(self.scheduler.time)
+        level = self.levels[self.depth]
+        for actor in level.actors:
+            if actor.is_alive:
+                self.scheduler.add(actor)
+
+    # -- main loop --------------------------------------------------------
+    def run_turn(self, player_command) -> None:
+        """Advance the scheduler until the PC needs a decision.
+
+        ``player_command`` is a callable returning a command string when
+        it's the PC's turn (the front-end supplies input/AI).
+        """
+        level = self.levels[self.depth]
+        while self.running:
+            actor = self.scheduler.pop()
+            if actor is None:
+                self.running = False
+                return
+            self.calendar.advance_to(self.scheduler.time)
+
+            if actor is self.pc.actor:
+                cmd = player_command()
+                acted = self._player_act(cmd)
+                if not acted:
+                    # Non-time-consuming command (e.g. quit / look): put the
+                    # PC back at the front without advancing time.
+                    self.scheduler.add(self.pc.actor, delay_cost=0)
+                    if not self.running:
+                        return
+                    continue
+                self._update_fov()
+                self.scheduler.reschedule(self.pc.actor, STANDARD_ACTION_COST)
+                if not self.pc.actor.is_alive:
+                    self._on_death()
+                    return
+                return  # hand control back to the front-end to redraw
+            else:
+                self._monster_act(actor, level)
+                if not self.pc.actor.is_alive:
+                    # A monster landed the killing blow — end the run here,
+                    # otherwise the dead PC never pops and monsters loop.
+                    self._update_fov()
+                    self._on_death()
+                    return
+                if actor.is_alive:
+                    self.scheduler.reschedule(actor, STANDARD_ACTION_COST)
+
+    def _player_act(self, cmd: str) -> bool:
+        pc = self.pc.actor
+        level = self.levels[self.depth]
+
+        if cmd in ("Q", "quit"):
+            self.running = False
+            return False
+        if cmd in DIRECTIONS:
+            return self._move_or_attack(pc, level, *DIRECTIONS[cmd])
+        if cmd == ">":
+            return self._descend()
+        if cmd == "<":
+            return self._ascend()
+        # Unknown command: no time passes.
+        return False
+
+    def _move_or_attack(self, pc, level, dx, dy) -> bool:
+        if dx == 0 and dy == 0:
+            return True  # wait a turn
+        nx, ny = pc.x + dx, pc.y + dy
+        target = level.actor_at(nx, ny)
+        if target is not None and target is not pc and target.is_alive:
+            result = combat.melee_attack(pc, target, self.rng)
+            self.log.add(result.message)
+            if result.killed:
+                self._reward_kill(target)
+            return True
+        if level.tile(nx, ny) is tiles.DOOR_CLOSED:
+            level.open_door(nx, ny)
+            self.log.add("You open the door.")
+            return True
+        if level.is_walkable(nx, ny):
+            pc.x, pc.y = nx, ny
+            self._describe_floor(level, nx, ny)
+            return True
+        self.log.add("There's a wall in the way.")
+        return False
+
+    def _describe_floor(self, level, x, y) -> None:
+        t = level.tile(x, y)
+        pile = level.items_at(x, y)
+        if t in (tiles.STAIRS_DOWN, tiles.STAIRS_UP, tiles.ALTAR,
+                 tiles.FORGE, tiles.HERB_BUSH):
+            self.log.add(f"There is {_article(t.name)} here.")
+        if pile:
+            names = ", ".join(getattr(i, "name", "item") for i in pile)
+            self.log.add(f"You see here: {names}.")
+
+    def _descend(self) -> bool:
+        level = self.levels[self.depth]
+        if level.tile(self.pc.actor.x, self.pc.actor.y) is not tiles.STAIRS_DOWN:
+            self.log.add("There are no stairs down here.")
+            return False
+        level.remove_actor(self.pc.actor)
+        self._enter_level(self.depth + 1, going_down=True)
+        self._schedule_all()
+        self._update_fov()
+        self.log.add(f"You descend to dungeon level {self.depth}.")
+        return True
+
+    def _ascend(self) -> bool:
+        level = self.levels[self.depth]
+        if level.tile(self.pc.actor.x, self.pc.actor.y) is not tiles.STAIRS_UP:
+            self.log.add("There are no stairs up here.")
+            return False
+        if self.depth <= 1:
+            self.log.add("You climb out toward the surface. (Leaving the Chain "
+                         "would end your quest — staying.)")
+            return False
+        level.remove_actor(self.pc.actor)
+        self._enter_level(self.depth - 1, going_down=False)
+        self._schedule_all()
+        self._update_fov()
+        self.log.add(f"You climb up to dungeon level {self.depth}.")
+        return True
+
+    def _monster_act(self, monster, level) -> None:
+        if not self._visible_to_player(monster):
+            # Off-screen monsters still act, but silently.
+            result = ai.monster_turn(monster, self.pc.actor, level, self.rng)
+        else:
+            result = ai.monster_turn(monster, self.pc.actor, level, self.rng)
+        if result is not None and result.message:
+            self.log.add(result.message)
+            if result.killed and not self.pc.actor.is_alive:
+                pass  # death handled by the caller
+
+    def _reward_kill(self, target) -> None:
+        from .content.monsters import MONSTERS
+        mdef = MONSTERS.get(target.monster_id)
+        xp = mdef.xp_value if mdef else 5
+        # XP scales with relative speed (§6.1).
+        xp = int(xp * (target.speed / max(1, self.pc.actor.speed)))
+        self.pc.note_kill(target.monster_id)
+        if self.pc.award_xp(max(1, xp)):
+            self.log.add(f"Welcome to level {self.pc.actor.char_level}!")
+        self.scheduler.remove(target)
+        self.levels[self.depth].remove_actor(target)
+
+    def _on_death(self) -> None:
+        self.log.add(f"{self.pc.actor.name} has died on dungeon level {self.depth}.")
+        self.log.add("*** PERMADEATH — the save is erased. ***")
+        self.save.on_death(self.pc.actor.name)
+        self.running = False
+
+    # -- perception -------------------------------------------------------
+    def _update_fov(self) -> None:
+        level = self.levels[self.depth]
+        pc = self.pc.actor
+        radius = sight_radius(self.calendar, pc.attributes.Pe)
+        self.visible = compute_fov(level, pc.x, pc.y, radius)
+        for (x, y) in self.visible:
+            level.explored[y][x] = True
+
+    def _visible_to_player(self, actor) -> bool:
+        return (actor.x, actor.y) in self.visible
+
+
+def _article(name: str) -> str:
+    return ("an " if name[:1] in "aeiou" else "a ") + name
