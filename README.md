@@ -1,25 +1,30 @@
-# ADOM — Turn-Based Roguelike
+# Hollowreach
 
-A ground-up reconstruction of *Ancient Domains of Mystery*, following the
-[full design plan](ADOM_Full_Design_Plan.md).  This repository currently
-implements the plan's **foundational engine slice** (§17.4 milestones 1–2,
-plus scaffolding for 3+): the signature energy/speed turn model, the
-character model with ADOM's actual formulas, procedural levels, combat,
-field of view, an Ancardian calendar, and single-save permadeath.
+> Descend into the Hollow. Seal the rift — or be unmade by it.
 
-The plan is huge (12 races × 22 classes, ~600 monsters, ~50 artifacts,
-the Caverns of Chaos, the corruption clock, the divine economy…).  This
-codebase is built as an **engine + data tables** so the remaining content
-is poured in as data, not new code — exactly the approach §18 prescribes.
+**Hollowreach** is an original single-character, turn-based roguelike with
+permadeath and procedural generation. You descend into *the Sundered
+Depths* beneath the corruption-haunted valley of **the Hollowreach**,
+racing a spreading blight — *the Hollowing* — to reach and seal *the
+Sundered Gate* before it claims you.
 
-> The design plan is `.NET`-oriented; this implementation is in **Python
-> 3** (no third-party dependencies) for portability and so it runs and
-> tests anywhere.  The module layout and every formula follow the plan.
+It's built on a classic-roguelike engine (energy/speed turns, DV/PV
+combat, persistent procedural levels, an approaching corruption clock and
+a divine economy). The **mechanics** come from the roguelike tradition;
+the **world, names, story and content are all original** to this project
+and live in [`hollowreach/content/`](hollowreach/content/) — see
+[`world.py`](hollowreach/content/world.py). The systems reference in
+[`docs/DESIGN_MECHANICS.md`](docs/DESIGN_MECHANICS.md) is an internal
+design document, not shipped content.
+
+> Status: **early foundation** (engine + core systems). This is the base
+> a commercial release is built on; the roadmap below tracks the path to a
+> shippable product. Implemented in dependency-free **Python 3**.
 
 ## Quick start
 
 ```bash
-# Play (interactive, needs a terminal with curses):
+# Play (interactive; needs a terminal — on Windows: pip install windows-curses):
 python3 main.py
 
 # Headless AI demo — exercises the whole stack, good for CI:
@@ -29,71 +34,91 @@ python3 main.py --demo 400 --seed 7
 python3 -m unittest discover -s tests -v
 ```
 
-In-game keys: `hjkl` + `yubn` to move/attack, `>`/`<` for stairs,
-`.` to wait, `Q` to quit.
+In-game keys: `hjkl` + `yubn` move/attack, `>`/`<` stairs, `.` wait, `Q` quit.
 
-## Architecture → design-plan mapping
+### Windows 11
 
-The package layout mirrors the plan's recommended module map (§17.1):
+The demo and tests run on a stock Python install. The interactive game
+uses `curses`, which isn't bundled on Windows — install the drop-in:
 
-| Module | Plan § | Responsibility |
-|---|---|---|
-| `adom/core/engine/rng.py` | §3.2 | Seedable RNG, `XdY+Z` dice, `Rnd(n)`, `M{a,b}` |
-| `adom/core/engine/scheduler.py` | §3.1 | **Energy/speed scheduler** — min-heap keyed on next-action time (not round-based) |
-| `adom/core/model/attributes.py` | §5.1 | The 9 attributes: base / potential / modified, clamp 1–99 |
-| `adom/core/model/actor.py` | §5, §7.2 | Actor (PC & monsters); **DV**, **PV**, to-hit, HP/PP formulas |
-| `adom/core/model/character.py` | §5–6, §3.4 | Race/class/star-sign assembly, XP & leveling, monster memory |
-| `adom/core/world/tile.py` | §4.3 | Tile types incl. altars / forges / herb bushes |
-| `adom/core/world/level.py` | §4.3 | Persistent level: grid, fog-of-war, occupants, item piles |
-| `adom/core/world/fov.py` | §4.1 | Recursive-shadowcasting field of view |
-| `adom/core/generation/dungeon.py` | §4.3 | Random rooms-and-corridors levels, DL-keyed spawns |
-| `adom/core/rules/combat.py` | §7.1 | Melee resolution: to-hit vs DV, PV soak, criticals |
-| `adom/core/rules/calendar.py` | §4.1–4.2 | Ancardian calendar + time-of-day sight radius |
-| `adom/core/rules/ai.py` | §12 | Monster turn logic (chase / attack / wander) |
-| `adom/content/*.py` | §5.2–5.4, §12, §18 | Data tables: races, classes, star signs, monsters |
-| `adom/ui/render.py` | §17.1 | ASCII renderer + message log |
-| `adom/persistence/save.py` | §3.3, §5.7 | **Single-save permadeath** service behind a flag |
-| `adom/game.py` | §3.1, §17.3 | Turn loop wiring subsystems onto the scheduler |
+```powershell
+pip install windows-curses
+python main.py
+```
 
-## What faithfully models ADOM today
+Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
+`HOLLOWREACH_SAVE_DIR` environment variable).
 
-- **Energy/speed system (§3.1).** Actors accrue energy by `speed`; a
-  standard action costs 1000 EP.  A speed-200 actor acts twice as often
-  as speed-100 — verified by a unit test.  No fixed round loop.
-- **Combat formulas (§7.2).** `DV = trunc((Dx-12)/2) + trunc((Dx-9)/2)`
-  plus Dodge/Alertness/tactics/armour and the Monk unarmed bonus;
-  `PV = trunc((To-18)/2)` capped +20, plus armour, Dwarven Mithril-Skin
-  +3, and the Blessed bonus.  A hit always deals ≥1 after PV soak.
-- **Character model (§5).** 9 attributes with base/potential/modified;
-  Toughness drives max HP, Mana drives max PP; race attribute mods &
-  potentials, XP multipliers (Troll ×2.5…), star-sign effects (Raven
-  +10 speed, Tree +PV/To/Wi, Candle regen…), universal + race + class
-  starting skills.
-- **World (§4).** Persistent procedural levels keyed to dungeon level;
-  fog-of-war; recursive-shadowcasting FOV; the 360-day / 12-month
-  Ancardian calendar starting in the Unicorn, with day/night sight.
-- **Progression (§6).** XP scaled by relative speed and the Learning
-  bonus; level-ups raise HP/PP; per-character monster memory (§3.4).
-- **Permadeath (§3.3).** One canonical save, deleted on load, erased on
-  death — all gated behind a single `permadeath` flag (§5.7).
+## What's implemented today
 
-## Roadmap (remaining plan milestones, §17.4)
+- **Energy/speed turn system** — a min-heap scheduler keyed on each
+  actor's next-action time (not a fixed round loop); a speed-200 actor
+  acts twice as often as speed-100, verified by a unit test.
+- **Combat** — `DV = trunc((Dx-12)/2) + trunc((Dx-9)/2)` plus
+  Dodge/Alertness/tactics/armour; `PV = trunc((To-18)/2)` capped +20 plus
+  armour, Dwarven stoneskin and a Blessed bonus; to-hit vs DV, PV soak
+  with a ≥1 floor, and criticals.
+- **Characters** — nine attributes (base/potential/modified, 1–99);
+  Toughness drives max HP, Mana drives max PP; playable ancestries with
+  attribute mods, XP multipliers and traits; twelve birth **omens** (e.g.
+  The Hawk +10 speed, The Bastion +PV/To/Wi); starting skills; XP scaled
+  by relative speed; per-character monster memory.
+- **World** — persistent procedural levels keyed to depth, fog-of-war,
+  recursive-shadowcasting field of view; a 360-day / 12-month calendar
+  with day/night sight range.
+- **Permadeath** — one canonical save, deleted on load, erased on death,
+  all behind a single toggle.
 
-3. Inventory, BUC, equip slots, identification, items/potions/scrolls (§11)
-4. Skills + weapon marks + full class-power system (§6.2–6.3)
-5. Magic: PP, spell knowledge/power, spell list + mindcraft (§8)
-6. Overworld graph, towns/NPCs, shops, quests (§4.4, §13, §14)
-7. Altars / piety / alignment / prayer / crowning (§10)
-8. Corruption clock + corruption table + removal (§9)
-9. Caverns of Chaos spine + the five Orbs + Gate + standard ending (§13.4, §14–15)
-10. Remaining races/classes/monsters/artifacts/zones + ultra endings
+## Architecture
 
-Each is additive: new data in `adom/content/` and new resolvers in
-`adom/core/rules/`, subscribing to the same turn scheduler (§17.3).
+```
+hollowreach/
+  core/engine/      energy scheduler, seedable RNG + dice
+  core/model/       Actor, Attributes, character assembly, monster memory
+  core/world/       Level (persistent grid + fog), tiles, FOV
+  core/generation/  random dungeon generators (DL-keyed spawns/features)
+  core/rules/       combat, calendar/lighting, monster AI
+  content/          world.py + data tables: ancestries, classes, omens, monsters
+  ui/               ASCII renderer + message log
+  persistence/      single-save permadeath service
+main.py             entry point (interactive + headless demo)
+tests/              37 unittest tests
+docs/               DESIGN_MECHANICS.md (internal systems reference)
+```
+
+New content is data in `content/`; new systems are resolvers in
+`core/rules/` that subscribe to the same turn scheduler.
+
+## Roadmap to a shippable product
+
+**Game depth**
+1. Inventory, equip slots, BUC status, identification, items/potions/scrolls
+2. Skills + weapon proficiencies + the full class-power system
+3. Magic (PP, spell knowledge/power, spell list) + mind powers
+4. Overworld, towns/NPCs, shops, quests
+5. Altars / piety / alignment / prayer / crowning (the divine economy)
+6. The corruption clock + mutation table + cures
+7. The Sundered Depths spine, the boss, and the standard ending
+8. Remaining ancestries/classes/monsters/artifacts + alternate endings
+
+**Productization** (chosen direction: original IP, 2D tile graphics)
+- Title screen, save-slot menu, options/settings, audio
+- A 2D tile render layer over the existing ASCII model
+- One-click Windows build (packaged `.exe`)
+- Steam release: Steamworks (achievements, cloud saves), store page,
+  the $100 Steam Direct fee
 
 ## Testing
 
 `python3 -m unittest discover -s tests` runs 37 tests covering the dice
-engine, the energy scheduler invariant, attribute clamping/potentials,
-DV/PV/combat formulas, character assembly, calendar/lighting, FOV,
-level connectivity & determinism, and permadeath save consumption.
+engine, the energy-scheduler invariant, attribute clamping/potentials,
+DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
+connectivity & determinism, and permadeath save consumption.
+
+## Licensing / IP
+
+All code and the Hollowreach setting are original to this project. The
+document under `docs/` analyses another game's *mechanics* for design
+reference only; none of that game's named content ships here. Game
+mechanics are not copyrightable; the roguelike genre is built on shared
+systems.

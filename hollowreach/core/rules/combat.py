@@ -5,7 +5,7 @@ Resolution order per attack:
 1. **To-hit** roll: attacker melee bonus + ``1d20`` vs defender **DV**.
 2. On a hit, roll weapon damage dice + strength bonus, then **PV** soaks
    a share of it (PV never reduces a hit below a small minimum, matching
-   ADOM's "a blow always stings a little").
+   the "a blow always stings a little" rule).
 3. Apply on-hit specials (poison, corruption, drain) — hooked here for
    later milestones.
 

@@ -24,6 +24,7 @@ from .core.rules import combat, ai
 from .core.rules.calendar import Calendar, sight_radius
 from .ui.render import MessageLog
 from .persistence.save import SaveService
+from .content import world
 
 
 # Directional deltas for movement commands.
@@ -59,8 +60,8 @@ class Game:
         game = cls(pc=pc, rng=rng, seed=seed,
                    save=SaveService(permadeath=permadeath))
         game._enter_level(1, going_down=True)
-        game.log.add(f"Welcome to the Drakalor Chain, {pc.actor.name}.")
-        game.log.add("(A Chaos Gate has torn open. Descend and close it.)")
+        for line in world.opening_lines(pc.actor.name):
+            game.log.add(line)
         game._schedule_all()
         game._update_fov()
         return game
@@ -230,7 +231,8 @@ class Game:
         self.levels[self.depth].remove_actor(target)
 
     def _on_death(self) -> None:
-        self.log.add(f"{self.pc.actor.name} has died on dungeon level {self.depth}.")
+        for line in world.death_epitaph(self.pc.actor.name, self.depth):
+            self.log.add(line)
         self.log.add("*** PERMADEATH — the save is erased. ***")
         self.save.on_death(self.pc.actor.name)
         self.running = False

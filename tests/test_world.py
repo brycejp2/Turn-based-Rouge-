@@ -8,20 +8,20 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from adom.core.engine.rng import Rng
-from adom.core.world.fov import compute_fov
-from adom.core.world.level import Level
-from adom.core.world import tile
-from adom.core.generation.dungeon import generate_level
-from adom.core.rules.calendar import Calendar, sight_radius, TICKS_PER_HOUR
-from adom.persistence.save import SaveService
+from hollowreach.core.engine.rng import Rng
+from hollowreach.core.world.fov import compute_fov
+from hollowreach.core.world.level import Level
+from hollowreach.core.world import tile
+from hollowreach.core.generation.dungeon import generate_level
+from hollowreach.core.rules.calendar import Calendar, sight_radius, TICKS_PER_HOUR
+from hollowreach.persistence.save import SaveService
 
 
 class CalendarTests(unittest.TestCase):
-    def test_starts_in_daytime_unicorn(self):
+    def test_starts_in_daytime_warden(self):
         cal = Calendar()
         self.assertTrue(cal.is_day)
-        self.assertEqual(cal.month_name(), "Unicorn")   # §4.2
+        self.assertEqual(cal.month_name(), "Warden")
         self.assertEqual(cal.day_of_month, 1)
 
     def test_night_reduces_sight(self):
@@ -104,10 +104,10 @@ class GenerationTests(unittest.TestCase):
 class SavePermadeathTests(unittest.TestCase):
     def test_load_consumes_save(self):
         with tempfile.TemporaryDirectory() as d:
-            os.environ["ADOM_SAVE_DIR"] = d
+            os.environ["HOLLOWREACH_SAVE_DIR"] = d
             # Rebuild the module constant to honour the env override.
             import importlib
-            from adom.persistence import save as save_mod
+            from hollowreach.persistence import save as save_mod
             importlib.reload(save_mod)
             svc = save_mod.SaveService(permadeath=True)
             svc.save("hero", {"hp": 10})
@@ -119,9 +119,9 @@ class SavePermadeathTests(unittest.TestCase):
 
     def test_disabled_permadeath_keeps_save(self):
         with tempfile.TemporaryDirectory() as d:
-            os.environ["ADOM_SAVE_DIR"] = d
+            os.environ["HOLLOWREACH_SAVE_DIR"] = d
             import importlib
-            from adom.persistence import save as save_mod
+            from hollowreach.persistence import save as save_mod
             importlib.reload(save_mod)
             svc = save_mod.SaveService(permadeath=False)
             svc.save("hero", {"hp": 5})

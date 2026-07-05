@@ -1,11 +1,11 @@
-"""Race definitions (design plan §5.2).
+"""Playable ancestries (original content).
 
-A representative subset of the 12 races, enough to exercise the
-character-model machinery: XP multiplier, attribute modifiers &
-potentials, lifespan, regen rates, starting alignment and signature
-abilities.  The full roster is ported the same way from the wiki
-**Races** pages (§18); each entry is pure data so adding the rest is a
-table edit, not a code change.
+A starter roster of playable ancestries built on classic fantasy
+archetypes (human, dwarf, elf, gnome, troll) plus original folk such as
+the Emberkin.  Each entry is pure data: XP multiplier, attribute
+modifiers & potentials, lifespan, regen rates, starting alignment and
+signature abilities.  Adding more ancestries is a table edit, not a code
+change.
 
 ``attr_mods`` are applied to the point-buy/rolled base values; ``attr_pot``
 are added to potentials.  ``hp_regen``/``pp_regen`` are turns-per-point
@@ -62,7 +62,7 @@ RACES = {
         attr_pot={"To": 8, "St": 6, "Dx": -6},
         xp_mult=1.0, age_range=(40, 70), hp_regen=30, pp_regen=30,
         start_alignment="lawful",
-        abilities=("mithril_skin_eligible", "find_secret_doors", "gold_piety"),
+        abilities=("stoneskin_eligible", "find_secret_doors", "gold_piety"),
     ),
     "gnome": RaceDef(
         id="gnome", name="Gnome",
@@ -81,8 +81,8 @@ RACES = {
         abilities=("fast_pp_regen", "spider_affinity", "hated_by_dwarves"),
         start_skills=("Alertness",),
     ),
-    "drakeling": RaceDef(
-        id="drakeling", name="Drakeling",
+    "emberkin": RaceDef(
+        id="emberkin", name="Emberkin",
         attr_mods={"To": 5, "St": 2, "Ap": -3},
         attr_pot={"To": 6},
         xp_mult=1.0, age_range=(12, 25), hp_regen=28, pp_regen=30,

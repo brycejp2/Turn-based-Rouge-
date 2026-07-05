@@ -2,7 +2,7 @@
 
 Renders the level as a grid of glyphs with fog-of-war: visible cells are
 drawn bright, previously-seen cells dim (remembered), the rest blank.  A
-status line surfaces HP/PP, dungeon level, speed and the Ancardian
+status line surfaces HP/PP, dungeon level, speed and the Hollowreach
 calendar; the message log shows recent events.
 
 The renderer returns plain strings so it works headless (demo/tests) and

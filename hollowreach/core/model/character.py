@@ -4,7 +4,7 @@
 a ready-to-play :class:`Actor`, applying:
 
 * race attribute modifiers and potentials (§5.2),
-* star-sign effects incl. the Raven speed bonus (§5.4),
+* star-sign effects incl. the Hawk speed bonus,
 * Toughness-driven starting HP and Mana-driven starting PP (§5.1),
 * class starting skills and level-1 combat contributions (§5.3),
 * the monster-memory record store (§3.4).
@@ -126,10 +126,10 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
     actor.max_hp = actor.hp = max(1, to + rng.rnd(6) + 4)
     actor.max_pp = actor.pp = max(0, (ma - 6) + rng.rnd(4))
 
-    # Star-sign PV / Dwarf mithril-skin eligibility.
+    # Star-sign PV / Dwarf innate stoneskin eligibility.
     actor.armor_pv += sign.effects.get("pv", 0)
-    if "mithril_skin_eligible" in race.abilities:
-        actor.mithril_skin = 3
+    if "stoneskin_eligible" in race.abilities:
+        actor.stoneskin = 3
 
     pc = PlayerCharacter(actor, race, cls, sign, gender)
 

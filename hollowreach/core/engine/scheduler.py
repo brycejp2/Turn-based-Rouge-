@@ -1,6 +1,6 @@
 """Energy / speed scheduler (design plan §3.1).
 
-ADOM is **not** round-based.  Every actor has a ``speed`` stat (base
+This engine is **not** round-based.  Every actor has a ``speed`` stat (base
 normal speed = 100).  Actions cost **energy points** (a standard
 move/attack costs 1000 EP).  Conceptually, each tick every actor gains
 ``speed`` EP and acts once it can afford its chosen action; the net

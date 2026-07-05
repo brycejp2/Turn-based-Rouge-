@@ -19,8 +19,8 @@ from dataclasses import dataclass
 
 
 SAVE_DIR = os.environ.get(
-    "ADOM_SAVE_DIR",
-    os.path.join(os.path.expanduser("~"), ".adom_saves"),
+    "HOLLOWREACH_SAVE_DIR",
+    os.path.join(os.path.expanduser("~"), ".hollowreach_saves"),
 )
 
 

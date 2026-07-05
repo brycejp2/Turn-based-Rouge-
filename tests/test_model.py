@@ -7,12 +7,12 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from adom.core.engine.rng import Rng
-from adom.core.model.attributes import Attributes
-from adom.core.model.actor import Actor
-from adom.core.model.character import build_player, make_monster
-from adom.content.monsters import MONSTERS
-from adom.core.rules.combat import melee_attack
+from hollowreach.core.engine.rng import Rng
+from hollowreach.core.model.attributes import Attributes
+from hollowreach.core.model.actor import Actor
+from hollowreach.core.model.character import build_player, make_monster
+from hollowreach.content.monsters import MONSTERS
+from hollowreach.core.rules.combat import melee_attack
 
 
 class AttributeTests(unittest.TestCase):
@@ -90,27 +90,27 @@ class CombatTests(unittest.TestCase):
 
 
 class CharacterBuildTests(unittest.TestCase):
-    def test_raven_speed_bonus(self):
+    def test_hawk_speed_bonus(self):
         rng = Rng(1)
-        pc = build_player("R", "human", "fighter", "raven", "male",
+        pc = build_player("R", "human", "fighter", "hawk", "male",
                           {"St": 12, "Dx": 12, "To": 12, "Ma": 10, "Pe": 10}, rng)
-        self.assertEqual(pc.actor.base_speed, 110)  # Raven +10 (§5.4)
+        self.assertEqual(pc.actor.base_speed, 110)  # The Hawk +10 speed
 
-    def test_dwarf_mithril_skin(self):
+    def test_dwarf_stoneskin(self):
         rng = Rng(1)
-        pc = build_player("D", "dwarf", "fighter", "candle", "male",
+        pc = build_player("D", "dwarf", "fighter", "beacon", "male",
                           {"St": 14, "Dx": 12, "To": 16, "Ma": 8, "Pe": 10}, rng)
-        self.assertEqual(pc.actor.mithril_skin, 3)  # dwarf-only +3 PV
+        self.assertEqual(pc.actor.stoneskin, 3)  # dwarf innate +3 PV
 
     def test_troll_xp_penalty(self):
         rng = Rng(1)
-        pc = build_player("T", "troll", "barbarian", "wolf", "male",
+        pc = build_player("T", "troll", "barbarian", "fang", "male",
                           {"St": 18, "Dx": 10, "To": 18, "Ma": 4, "Pe": 8}, rng)
         self.assertEqual(pc.race.xp_mult, 2.5)  # slow leveling (§5.2)
 
     def test_universal_starting_skills(self):
         rng = Rng(1)
-        pc = build_player("S", "human", "fighter", "candle", "male",
+        pc = build_player("S", "human", "fighter", "beacon", "male",
                           {"Le": 12}, rng)
         for skill in ("Climbing", "First Aid", "Haggling", "Listening"):
             self.assertIn(skill, pc.skills)

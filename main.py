@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""ADOM — entry point.
+"""Hollowreach — entry point.
 
-Character creation follows the plan's order (§5.7):
-    Race → Class → Gender → Star Sign → Attributes → Name.
+Character creation order:
+    Ancestry → Class → Gender → Omen → Attributes → Name.
 
 Run modes:
     python main.py                 interactive (curses) game
@@ -15,12 +15,12 @@ from __future__ import annotations
 import argparse
 import sys
 
-from adom.core.engine.rng import Rng
-from adom.core.model.character import build_player
-from adom.content.races import RACES, DEFAULT_RACE
-from adom.content.classes import CLASSES, DEFAULT_CLASS
-from adom.content.starsigns import STAR_SIGNS, DEFAULT_STAR_SIGN
-from adom.game import Game, DIRECTIONS
+from hollowreach.core.engine.rng import Rng
+from hollowreach.core.model.character import build_player
+from hollowreach.content.races import RACES, DEFAULT_RACE
+from hollowreach.content.classes import CLASSES, DEFAULT_CLASS
+from hollowreach.content.starsigns import STAR_SIGNS, DEFAULT_STAR_SIGN
+from hollowreach.game import Game, DIRECTIONS
 
 
 DEFAULT_ATTRS = {"St": 12, "Le": 11, "Wi": 11, "Dx": 13, "To": 13,
@@ -39,11 +39,11 @@ def make_game(seed: int, name: str, race: str, cls: str, sign: str,
 # without a terminal (used by CI and `verify`).
 # ---------------------------------------------------------------------------
 def run_demo(seed: int, turns: int) -> int:
-    from adom.ui.render import render_screen
-    game = make_game(seed, "Demo", "dwarf", "fighter", "candle", "male",
+    from hollowreach.ui.render import render_screen
+    game = make_game(seed, "Demo", "dwarf", "fighter", "beacon", "male",
                      permadeath=False)
 
-    print("=== ADOM demo run ===")
+    print("=== Hollowreach demo run ===")
     print(f"seed={seed}  {game.pc.race.name} {game.pc.cls.name}  "
           f"sign={game.pc.sign.name}")
     print(render_screen(game.levels[game.depth], game.pc, game.visible, game.log))
@@ -176,12 +176,12 @@ def run_interactive(seed: int) -> int:
 def _prompt_character():
     print("=== Create your hero (Enter accepts the default) ===")
     name = input("Name [Grimm]: ").strip() or "Grimm"
-    race = _pick("Race", RACES, DEFAULT_RACE)
+    race = _pick("Ancestry", RACES, DEFAULT_RACE)
     cls = _pick("Class", CLASSES, DEFAULT_CLASS)
     gender = (input("Gender (male/female) [male]: ").strip().lower() or "male")
     if gender not in ("male", "female"):
         gender = "male"
-    sign = _pick("Star sign", STAR_SIGNS, DEFAULT_STAR_SIGN)
+    sign = _pick("Omen", STAR_SIGNS, DEFAULT_STAR_SIGN)
     return name, race, cls, sign, gender
 
 
@@ -203,7 +203,7 @@ def _pick(label, table, default):
 
 def _curses_loop(stdscr, game):
     import curses
-    from adom.ui.render import render_level, status_line
+    from hollowreach.ui.render import render_level, status_line
     curses.curs_set(0)
     stdscr.nodelay(False)
 
@@ -259,7 +259,7 @@ def _safe_add(stdscr, y, x, text):
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="ADOM reimplementation")
+    parser = argparse.ArgumentParser(description="Hollowreach roguelike")
     parser.add_argument("--demo", nargs="?", const=200, type=int,
                         help="run a headless AI demo for N turns (default 200)")
     parser.add_argument("--seed", type=int, default=1,

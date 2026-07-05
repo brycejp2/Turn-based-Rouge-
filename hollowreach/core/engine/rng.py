@@ -6,7 +6,7 @@ Implements the primitives called for in the design plan §3.2:
 * Standard dice notation ``XdY(+Z)`` via :func:`roll`.
 * ``Rnd(n)`` == uniform ``1..n`` as used by the skill formulas (§6.2).
 * ``M{a, b}`` == ``max(a, b)`` exposed as :func:`m` so damage/effect
-  formulas can be transcribed from the wiki almost verbatim.
+  formulas can be transcribed from the mechanics reference verbatim.
 
 The class is deliberately tiny; every other subsystem takes an ``Rng``
 instance rather than touching the global ``random`` module, which keeps
@@ -76,7 +76,7 @@ class Rng:
 
     # -- primitives -------------------------------------------------------
     def rnd(self, n: int) -> int:
-        """Uniform integer in ``1..n`` (the wiki's ``Rnd(n)``)."""
+        """Uniform integer in ``1..n`` (the reference's ``Rnd(n)``)."""
         if n <= 0:
             return 0
         return self._random.randint(1, n)
@@ -123,5 +123,5 @@ class Rng:
 
 
 def m(a: int, b: int) -> int:
-    """``M{a, b}`` from the wiki formulas: the larger of two values."""
+    """``M{a, b}`` from the reference formulas: the larger of two values."""
     return a if a > b else b

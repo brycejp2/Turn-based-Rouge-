@@ -1,16 +1,17 @@
-"""Ancardian calendar and time-of-day lighting (design plan §4.1, §4.2).
+"""Hollowreach calendar and time-of-day lighting (mechanics ref §4.1-4.2).
 
-360-day year, 12 months of 30 days, each named for a star sign; the game
-begins on day 1 of the month of the Unicorn.  Time advances with the
-energy scheduler.  Sight radius depends on time of day: full by day
-(~06:00–20:00), reduced at night, further modified by Perception.
+360-day year, 12 months of 30 days, each named for a constellation; a run
+begins on day 1 of the month of the Warden (when the Sundered Gate was
+opened).  Time advances with the energy scheduler.  Sight radius depends
+on time of day: full by day (~06:00-20:00), reduced at night, further
+modified by Perception.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ...content.starsigns import MONTH_NAMES
+from ...content.starsigns import MONTH_NAMES, STARTING_MONTH
 
 # One "day" of game-time in scheduler ticks.  A standard action at speed
 # 100 costs 1000 EP == 10 ticks here, so a day is ~1000 actions.
@@ -23,10 +24,10 @@ NIGHT_START_HOUR = 20
 
 @dataclass
 class Calendar:
-    # The game begins on day 1 of the Unicorn at a daytime hour (§4.2), so
-    # start the clock mid-morning rather than at midnight.
+    # A run begins on day 1 of the Warden at a daytime hour, so start the
+    # clock mid-morning rather than at midnight.
     ticks: float = float(8 * TICKS_PER_HOUR)
-    start_month: int = 4  # Unicorn (§4.2)
+    start_month: int = STARTING_MONTH  # the Warden
 
     def advance_to(self, tick_time: float) -> None:
         self.ticks = tick_time

@@ -9,7 +9,7 @@ Class powers are modelled as data (``ClassPower``) — ``kind`` selects how
 the rules engine applies the ``payload`` (one-time bonus, per-level
 recurring, permanent passive, or an activatable ability).  Only a couple
 of powers per class are filled in here to exercise the system; the rest
-are ported from the wiki **Class power** pages (§18).
+are ported from the mechanics reference (docs/DESIGN_MECHANICS.md).
 """
 
 from __future__ import annotations

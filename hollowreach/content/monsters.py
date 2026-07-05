@@ -4,7 +4,7 @@ A small starter bestiary keyed to dungeon level (DL) for spawn tables
 (§4.3, §12.5).  Each entry carries HP dice, DV/PV, speed, attack dice,
 XP value, alignment, size, type tags and a corpse effect.  Breeders and
 uniques are flagged.  The full ~600-monster roster is ported the same
-way from the wiki **Monster stats** pages (§18).
+way from the mechanics reference (docs/DESIGN_MECHANICS.md).
 """
 
 from __future__ import annotations

@@ -6,8 +6,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from adom.core.engine.rng import Rng, Dice, m
-from adom.core.engine.scheduler import Scheduler, STANDARD_ACTION_COST
+from hollowreach.core.engine.rng import Rng, Dice, m
+from hollowreach.core.engine.scheduler import Scheduler, STANDARD_ACTION_COST
 
 
 class DiceTests(unittest.TestCase):

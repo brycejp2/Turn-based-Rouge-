@@ -1,3 +1,20 @@
+> **Internal systems reference — not shipped content.**
+>
+> This document is a *mechanics* reference for Hollowreach. It analyses the
+> systems of the classic roguelike *Ancient Domains of Mystery* (Thomas
+> Biskup) — an existing commercial game — purely to guide our engine
+> design. **None of that game's named content, world, lore, monsters,
+> artifacts, or text ships in Hollowreach.** All player-facing content is
+> original and lives in `hollowreach/content/` (see `world.py`). Game
+> *mechanics* (turn/energy systems, DV/PV math, corruption clocks) are not
+> copyrightable and are common to the roguelike genre; the specific
+> expression of the game referenced below is not ours to ship, and is not.
+>
+> When implementing from this doc, always translate systems into
+> Hollowreach's own names and content.
+
+---
+
 # ADOM — Complete Design & Implementation Plan
 
 *A build-oriented specification for reconstructing Ancient Domains of Mystery (Thomas Biskup). Synthesized from the ADOM Wiki (ancardia.fandom.com), the ADOM Manual, and community guidebooks. Values reflect the 1.x / 3.x "Deluxe" era and may vary by patch.*

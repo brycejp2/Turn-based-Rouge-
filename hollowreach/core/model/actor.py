@@ -1,13 +1,13 @@
 """Actors: the player character and monsters (design plan §5, §7, §12).
 
 This is where the plan's core numeric formulas live, transcribed as
-directly as possible from the wiki so they can be checked against it:
+directly as possible from the mechanics reference so they can be verified:
 
 * **DV** (§7.2):  ``(Dx-12)/2 + (Dx-9)/2`` plus Dodge/Alertness/tactics
   and equipment, with the class unarmed bonuses (Monk ``+lvl*2/3``,
   Beastfighter ``+lvl/3``).
 * **PV** (§7.2):  ``(To-18)/2`` capped at +20, plus armour and the
-  Dwarven Mithril-Skin +3.
+  Dwarven stoneskin +3.
 * **Max HP** driven mainly by Toughness (§5.1), **max PP** by Mana.
 
 Monsters and the PC share this class; ``is_player`` and the optional
@@ -51,7 +51,7 @@ class Actor:
     dodge_dv: int = 0
     alertness_dv: int = 0
     unarmed_dv_per_level: float = 0.0   # Monk 2/3, Beastfighter 1/3
-    mithril_skin: int = 0               # Dwarf +3 PV
+    stoneskin: int = 0                  # Dwarf innate +3 PV
     blessed: bool = False
 
     tactics_dv: int = 0                 # from the tactics slider (§7.3)
@@ -77,7 +77,7 @@ class Actor:
     def dv(self) -> int:
         """Defensive Value — chance to avoid a blow (§7.2)."""
         dx = self.attributes.Dx
-        # Truncate toward zero to match ADOM's integer arithmetic (§7.2).
+        # Truncate toward zero to match the reference integer arithmetic.
         dv = int((dx - 12) / 2) + int((dx - 9) / 2)
         dv += self.armor_dv + self.dodge_dv + self.alertness_dv
         dv += self.tactics_dv
@@ -90,7 +90,7 @@ class Actor:
         """Protection Value — damage soak (§7.2)."""
         to = self.attributes.To
         pv = min(20, (to - 18) // 2) if to > 18 else 0
-        pv += self.armor_pv + self.mithril_skin
+        pv += self.armor_pv + self.stoneskin
         if self.blessed:
             pv += 1 + (self.char_level // 25)  # +2 at L25, +3 at L50
         return max(0, pv)
