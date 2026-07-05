@@ -17,7 +17,7 @@ and live in [`hollowreach/content/`](hollowreach/content/) — see
 [`docs/DESIGN_MECHANICS.md`](docs/DESIGN_MECHANICS.md) is an internal
 design document, not shipped content.
 
-> Status: **early foundation** (engine + core systems). This is the base
+> Status: **playable vertical slice** — a complete, winnable game loop on the engine. This is the base
 > a commercial release is built on; the roadmap below tracks the path to a
 > shippable product. Implemented in dependency-free **Python 3**.
 
@@ -97,11 +97,20 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   per-run appearances until use-identified or read via a scroll of
   identify. Working consumables — healing, gain attributes, enchant
   weapon/armour, remove curse, magic mapping, teleport, and more.
+- **A complete, winnable loop** — descend the Sundered Depths to the
+  bottom (depth 15), where the **Sundered Gate** is guarded by the unique
+  boss **Vurgast the Unmade**. Defeat him and step to the Gate to **seal
+  it and win**; the Gate rejects you while the guardian lives. The
+  descent is balanced so a strong, focused run reaches the bottom with a
+  handful of Warps to spare — but dawdling lets the Hollowing claim you
+  first. Verified end-to-end: a built hero descends all 15 levels, slays
+  Vurgast and wins. Deeper corrupting foes (wraiths, hollowed husks, and
+  Vurgast) feed the Hollowing when they land a blow.
 - **World** — persistent procedural levels keyed to depth, fog-of-war,
   recursive-shadowcasting field of view; loot scattered by depth; a
   360-day / 12-month calendar with day/night sight range.
-- **Permadeath** — one canonical save, deleted on load, erased on death,
-  all behind a single toggle.
+- **Permadeath** — one canonical save, deleted on load, erased on death
+  (and on victory — the run is complete), all behind a single toggle.
 
 ## Architecture
 
@@ -118,7 +127,7 @@ hollowreach/
   ui/               ASCII renderer + message log
   persistence/      single-save permadeath service
 main.py             entry point (interactive + headless demo)
-tests/              77 unittest tests
+tests/              85 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -134,7 +143,7 @@ New content is data in `content/`; new systems are resolvers in
 4. Overworld, towns/NPCs, shops, quests
 5. Altars / piety / alignment / prayer / crowning (the divine economy)
 6. ~~The corruption clock + mutation table + cures~~ ✅ **done** (the Hollowing / Blight)
-7. The Sundered Depths spine, the boss, and the standard ending
+7. ~~The Sundered Depths spine, the boss, and the standard ending~~ ✅ **done** (winnable!)
 8. Remaining ancestries/classes/monsters/artifacts + alternate endings
 
 **Productization** (chosen direction: original IP, 2D tile graphics)
@@ -146,7 +155,7 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 77 tests covering the dice
+`python3 -m unittest discover -s tests` runs 85 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system

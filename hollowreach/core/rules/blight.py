@@ -43,7 +43,9 @@ class BlightClock:
     def rate_per_turn(self, pc, depth: int) -> float:
         if not self.enabled or depth < BLIGHT_START_DEPTH:
             return 0.0
-        rate = 0.5 + max(0, depth - BLIGHT_START_DEPTH) * 0.4
+        # Tuned so a focused descent to the bottom collects only a handful
+        # of Warps, while lingering on a level is punished (§9.2).
+        rate = 0.2 + max(0, depth - BLIGHT_START_DEPTH) * 0.12
         rate *= pc.sign.effects.get("blight_mult", 1.0)
         ap = pc.actor.attributes.Ap
         rate *= max(0.5, 1.0 - (ap - 10) * 0.02)   # comely folk resist it

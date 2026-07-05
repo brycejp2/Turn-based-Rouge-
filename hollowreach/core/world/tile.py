@@ -37,10 +37,13 @@ ALTAR = TileType("altar", "_", walkable=True, transparent=True, name="altar")
 FORGE = TileType("forge", "\\", walkable=True, transparent=True, name="forge")
 HERB_BUSH = TileType("herb_bush", "\"", walkable=True, transparent=True, name="herb bush")
 
+# The endgame objective (§14): the Sundered Gate at the bottom of the Depths.
+GATE = TileType("gate", "0", walkable=True, transparent=True, name="Sundered Gate")
+
 ALL_TILES = {
     t.key: t
     for t in [
         WALL, FLOOR, CORRIDOR, DOOR_CLOSED, DOOR_OPEN, STAIRS_DOWN,
-        STAIRS_UP, WATER, LAVA, ALTAR, FORGE, HERB_BUSH,
+        STAIRS_UP, WATER, LAVA, ALTAR, FORGE, HERB_BUSH, GATE,
     ]
 }

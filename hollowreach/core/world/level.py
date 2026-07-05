@@ -29,6 +29,10 @@ class Level:
         self.items: dict[tuple[int, int], list] = {}  # floor item piles
         self.stairs_down: "tuple[int, int] | None" = None
         self.stairs_up: "tuple[int, int] | None" = None
+        # Endgame (§14): populated on the bottom level.
+        self.is_final: bool = False
+        self.gate: "tuple[int, int] | None" = None
+        self.boss = None
 
     # -- geometry ---------------------------------------------------------
     def in_bounds(self, x: int, y: int) -> bool:

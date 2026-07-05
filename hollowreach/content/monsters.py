@@ -86,6 +86,39 @@ MONSTERS = {
         xp_value=12, alignment="chaotic", size="medium", types=("humanoid",),
         spawn_dl=4,
     ),
+    "ogre": MonsterDef(
+        "ogre", "ogre", "O", "5d8", dv=6, pv=4, speed=100, attack="2d8",
+        xp_value=30, alignment="chaotic", size="large", types=("giant",),
+        spawn_dl=6,
+    ),
+    "dire_wolf": MonsterDef(
+        "dire_wolf", "dire wolf", "d", "4d6", dv=10, pv=2, speed=140, attack="2d6",
+        xp_value=22, alignment="neutral", size="medium", types=("animal",),
+        spawn_dl=6,
+    ),
+    "wraith": MonsterDef(
+        "wraith", "wraith", "W", "4d8", dv=12, pv=3, speed=120, attack="2d6",
+        xp_value=40, alignment="chaotic", size="medium", types=("undead",),
+        spawn_dl=8, abilities=("corrupting",),
+    ),
+    "troll_brute": MonsterDef(
+        "troll_brute", "troll brute", "T", "8d8", dv=8, pv=6, speed=100, attack="3d6",
+        xp_value=70, alignment="chaotic", size="large", types=("giant",),
+        spawn_dl=10,
+    ),
+    # Themed minions of the deepest dark.
+    "hollowed_husk": MonsterDef(
+        "hollowed_husk", "hollowed husk", "h", "3d8", dv=6, pv=3, speed=100,
+        attack="2d5", xp_value=18, alignment="chaotic", size="medium",
+        types=("undead", "hollowed"), spawn_dl=9, abilities=("corrupting",),
+    ),
+    # The final guardian of the Sundered Gate (§14) — unique.
+    "vurgast": MonsterDef(
+        "vurgast", "Vurgast the Unmade", "V", "26d8", dv=18, pv=10, speed=110,
+        attack="4d8", xp_value=1500, alignment="chaotic", size="large",
+        types=("demon", "hollowed"), spawn_dl=15, unique=True,
+        abilities=("corrupting",),
+    ),
 }
 
 

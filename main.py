@@ -58,7 +58,8 @@ def run_demo(seed: int, turns: int, blight_enabled: bool = True) -> int:
 
     print(render_screen(game.levels[game.depth], game.pc, game.visible, game.log))
     print()
-    print(f"Demo ended after {step} player turns. "
+    outcome = "WON" if game.won else ("DIED" if not game.pc.actor.is_alive else "stopped")
+    print(f"Demo {outcome} after {step} player turns. "
           f"HP {game.pc.actor.hp}/{game.pc.actor.max_hp}, "
           f"char level {game.pc.actor.char_level}, "
           f"XP {game.pc.xp}, DL {game.depth}, "
@@ -93,15 +94,16 @@ def _demo_command(game):
         if step is not None:
             return step
 
-    # 3. Collect known loot piles on the way down.
-    piles = {xy for xy in level.items
-             if level.explored[xy[1]][xy[0]] and level.items_at(*xy)}
-    if piles:
-        step = _bfs_step(level, pc, piles)
-        if step is not None:
-            return step
+    # 2b. Final level: once the guardian is dead, make for the Gate to win.
+    if level.is_final and level.gate is not None:
+        boss = level.boss
+        if (boss is None or not boss.is_alive) and \
+                level.explored[level.gate[1]][level.gate[0]]:
+            step = _bfs_step(level, pc, {level.gate})
+            if step is not None:
+                return step
 
-    # 4. Descend if we're on / can reach the down-stairs.
+    # 3. Descend if we're on / can reach the down-stairs.
     if level.tile(pc.x, pc.y).key == "stairs_down":
         return ">"
     if level.stairs_down is not None and level.explored[level.stairs_down[1]][level.stairs_down[0]]:
@@ -268,7 +270,7 @@ def _curses_loop(stdscr, game):
     def get_command():
         return pending["cmd"]
 
-    while game.running and game.pc.actor.is_alive:
+    while game.running and game.pc.actor.is_alive and not game.won:
         _draw_main(stdscr, game)
         action = _handle_key(stdscr, game, stdscr.getch())
         if action == "QUIT":
@@ -280,7 +282,9 @@ def _curses_loop(stdscr, game):
         game.run_turn(get_command)
 
     _draw_main(stdscr, game)
-    _safe_add(stdscr, 0, 0, "  --- press any key to exit ---  ")
+    banner = ("  *** YOU SEALED THE GATE — YOU WIN! ***  " if game.won
+              else "  --- press any key to exit ---  ")
+    _safe_add(stdscr, 0, 0, banner)
     stdscr.refresh()
     stdscr.getch()
 

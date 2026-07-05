@@ -52,8 +52,11 @@ class Room:
 
 
 def generate_level(rng: Rng, depth: int = 1, width: int = 70, height: int = 21,
-                   max_rooms: int = 12) -> Level:
+                   max_rooms: int = 12, is_final: bool = False) -> Level:
     level = Level(width, height, depth=depth)
+    level.is_final = is_final
+    level.gate = None
+    level.boss = None
     rooms: list[Room] = []
 
     for _ in range(max_rooms * 3):
@@ -75,12 +78,34 @@ def generate_level(rng: Rng, depth: int = 1, width: int = 70, height: int = 21,
         rooms.append(Room(1, 1, width - 2, height - 2))
         _carve_room(level, rooms[0])
 
-    _place_stairs(level, rng, rooms)
+    _place_stairs(level, rng, rooms, is_final)
     _inject_features(level, rng, rooms, depth)
     _populate(level, rng, rooms, depth)
     _place_items(level, rng, rooms, depth)
+    if is_final:
+        _place_gate_and_boss(level, rng, rooms)
     level.rooms = rooms  # kept for spawn placement / debugging
     return level
+
+
+def _place_gate_and_boss(level: Level, rng: Rng, rooms: list[Room]) -> None:
+    """Set the Sundered Gate and its guardian in the deepest room (§14)."""
+    gate_room = rooms[-1]
+    gx, gy = gate_room.cx, gate_room.cy
+    level.set_tile(gx, gy, tile.GATE)
+    level.gate = (gx, gy)
+
+    boss = make_monster(MONSTERS["vurgast"], rng, depth=level.depth)
+    # Plant the guardian next to the Gate, on open floor.
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)):
+        bx, by = gx + dx, gy + dy
+        if level.is_walkable(bx, by) and level.actor_at(bx, by) is None:
+            boss.x, boss.y = bx, by
+            break
+    else:
+        boss.x, boss.y = gx, gy
+    level.add_actor(boss)
+    level.boss = boss
 
 
 def _place_items(level: Level, rng: Rng, rooms: list[Room], depth: int) -> None:
@@ -125,14 +150,18 @@ def _v_corridor(level: Level, y1: int, y2: int, x: int) -> None:
             level.set_tile(x, y, tile.CORRIDOR)
 
 
-def _place_stairs(level: Level, rng: Rng, rooms: list[Room]) -> None:
+def _place_stairs(level: Level, rng: Rng, rooms: list[Room],
+                  is_final: bool = False) -> None:
     up_room = rooms[0]
-    down_room = rooms[-1]
     ux, uy = up_room.cx, up_room.cy
-    dx, dy = down_room.random_floor(rng)
     level.set_tile(ux, uy, tile.STAIRS_UP)
-    level.set_tile(dx, dy, tile.STAIRS_DOWN)
     level.stairs_up = (ux, uy)
+    if is_final:
+        level.stairs_down = None   # the bottom: only the Gate lies beyond
+        return
+    down_room = rooms[-1]
+    dx, dy = down_room.random_floor(rng)
+    level.set_tile(dx, dy, tile.STAIRS_DOWN)
     level.stairs_down = (dx, dy)
 
 

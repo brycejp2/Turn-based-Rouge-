@@ -55,6 +55,7 @@ class Game:
         self.levels: dict[int, object] = {}
         self.visible: set = set()
         self.running = True
+        self.won = False
         self.depth = 0
         self.id_service = IdentificationService(self.rng)
         self.blight = BlightClock(self.rng, enabled=self.blight_enabled)
@@ -74,10 +75,12 @@ class Game:
         return game
 
     def _enter_level(self, depth: int, going_down: bool) -> None:
-        if depth not in self.levels:
+        first_visit = depth not in self.levels
+        if first_visit:
             # Deterministic per-depth seed so the world is reproducible.
             level_rng = Rng(self.seed * 1000 + depth)
-            self.levels[depth] = generate_level(level_rng, depth=depth)
+            self.levels[depth] = generate_level(
+                level_rng, depth=depth, is_final=(depth >= world.BOTTOM_DEPTH))
         level = self.levels[depth]
         self.depth = depth
 
@@ -88,6 +91,10 @@ class Game:
         self.pc.actor.x, self.pc.actor.y = target
         if self.pc.actor not in level.actors:
             level.add_actor(self.pc.actor)
+
+        if first_visit and level.is_final:
+            for line in world.gate_arrival_lines():
+                self.log.add(line)
 
     def _schedule_all(self) -> None:
         self.scheduler = Scheduler(self.scheduler.time)
@@ -114,6 +121,8 @@ class Game:
             if actor is self.pc.actor:
                 cmd = player_command()
                 acted = self._player_act(cmd)
+                if self.won:          # sealed the Gate this action
+                    return
                 if not acted:
                     # Non-time-consuming command (e.g. quit / look): put the
                     # PC back at the front without advancing time.
@@ -254,10 +263,24 @@ class Game:
             return True
         if level.is_walkable(nx, ny):
             pc.x, pc.y = nx, ny
-            self._describe_floor(level, nx, ny)
+            if level.tile(nx, ny) is tiles.GATE:
+                self._try_seal_gate(level)
+            else:
+                self._describe_floor(level, nx, ny)
             return True
         self.log.add("There's a wall in the way.")
         return False
+
+    def _try_seal_gate(self, level) -> None:
+        """Reaching the Gate ends the game — a win if the guardian is dead."""
+        if level.boss is not None and level.boss.is_alive:
+            self.log.add(world.gate_blocked_line())
+            return
+        for line in world.victory_lines(self.pc.actor.name):
+            self.log.add(line)
+        self.won = True
+        self.save.on_death(self.pc.actor.name)   # run complete (permadeath)
+        self.running = False
 
     def _describe_floor(self, level, x, y) -> None:
         t = level.tile(x, y)
@@ -298,15 +321,20 @@ class Game:
         return True
 
     def _monster_act(self, monster, level) -> None:
-        if not self._visible_to_player(monster):
-            # Off-screen monsters still act, but silently.
-            result = ai.monster_turn(monster, self.pc.actor, level, self.rng)
-        else:
-            result = ai.monster_turn(monster, self.pc.actor, level, self.rng)
+        result = ai.monster_turn(monster, self.pc.actor, level, self.rng)
         if result is not None and result.message:
             self.log.add(result.message)
-            if result.killed and not self.pc.actor.is_alive:
-                pass  # death handled by the caller
+        # A corrupting blow feeds the Hollowing (§9.1, §12.2).
+        if result is not None and result.hit and self.pc.actor.is_alive:
+            from .content.monsters import MONSTERS
+            mdef = MONSTERS.get(monster.monster_id)
+            if mdef is not None and "corrupting" in mdef.abilities:
+                events = self.blight.add_blight(self.pc, 35)
+                self.pc.refresh_combat()
+                for event in events:
+                    self.log.add(event.message)
+                    if event.kind == "consumed":
+                        self._on_hollowed()
 
     def _reward_kill(self, target) -> None:
         from .content.monsters import MONSTERS
@@ -318,7 +346,11 @@ class Game:
         for msg in self.pc.award_xp(max(1, xp)):
             self.log.add(msg)
         self.scheduler.remove(target)
-        self.levels[self.depth].remove_actor(target)
+        level = self.levels[self.depth]
+        level.remove_actor(target)
+        if target is level.boss:   # the guardian falls (§14)
+            for line in world.boss_slain_lines():
+                self.log.add(line)
 
     def _train_weapon(self, pc_actor) -> None:
         """Award weapon-proficiency marks (and train combat skills) on a hit."""

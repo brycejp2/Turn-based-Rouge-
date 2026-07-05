@@ -37,6 +37,12 @@ START_VILLAGE = "Hearthvale"       # peaceful starting hub
 MAIN_HUB = "Stoneholt"             # mid-game dwarven hold
 DUNGEON_SPINE = "the Sundered Depths"   # the deep dungeon to the rift
 
+# -- the descent objective --------------------------------------------------
+# The bottom of the Sundered Depths, where the Gate and its guardian wait.
+BOTTOM_DEPTH = 15
+BOSS_ID = "vurgast"          # Vurgast the Unmade
+BOSS_NAME = "Vurgast the Unmade"
+
 # -- the three paths (alignment flavour over the lawful/neutral/chaotic keys)
 ALIGNMENT_LABELS = {
     "lawful": "the Warden's Path",     # order, protection
@@ -59,4 +65,34 @@ def death_epitaph(hero_name: str, depth: int) -> list[str]:
     return [
         f"{hero_name} fell in {DUNGEON_SPINE}, at depth {depth}.",
         f"{REGION} waits still for one who can close {RIFT}.",
+    ]
+
+
+def gate_arrival_lines() -> list[str]:
+    return [
+        f"You descend into the deepest dark and there it stands: {RIFT}, "
+        f"a wound in the world weeping {BLIGHT}.",
+        f"{BOSS_NAME} uncoils before it. \"Turn back,\" it grinds. "
+        f"\"All roads end in the Hollow.\"",
+    ]
+
+
+def boss_slain_lines() -> list[str]:
+    return [
+        f"{BOSS_NAME} collapses into formless Hollow and is gone.",
+        f"{RIFT} stands unguarded. Step to it and seal the wound.",
+    ]
+
+
+def gate_blocked_line() -> str:
+    return f"The Gate will not close while {BOSS_NAME} still stands."
+
+
+def victory_lines(hero_name: str) -> list[str]:
+    return [
+        f"You press your will into {RIFT}, and the wound draws shut.",
+        f"The Hollowing recedes from {REGION}. The long dark eases.",
+        f"{hero_name}, you have sealed the Sundered Gate. "
+        f"The Hollowreach is saved.",
+        "*** YOU WIN ***",
     ]
