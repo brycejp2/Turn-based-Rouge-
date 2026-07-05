@@ -63,9 +63,17 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   attribute mods, XP multipliers and traits; twelve birth **omens** (e.g.
   The Hawk +10 speed, The Bastion +PV/To/Wi); starting skills; XP scaled
   by relative speed; per-character monster memory.
+- **Items & equipment** — weapons, armour, potions and scrolls with
+  hidden **BUC** (blessed/uncursed/cursed, cursed gear welds on),
+  enchantment levels, a letter-indexed inventory with stacking and
+  Strength-based carry weight, and eleven equip slots that fold into the
+  combat math. **Identification**: potions/scrolls are disguised behind
+  per-run appearances until use-identified or read via a scroll of
+  identify. Working consumables — healing, gain attributes, enchant
+  weapon/armour, remove curse, magic mapping, teleport, and more.
 - **World** — persistent procedural levels keyed to depth, fog-of-war,
-  recursive-shadowcasting field of view; a 360-day / 12-month calendar
-  with day/night sight range.
+  recursive-shadowcasting field of view; loot scattered by depth; a
+  360-day / 12-month calendar with day/night sight range.
 - **Permadeath** — one canonical save, deleted on load, erased on death,
   all behind a single toggle.
 
@@ -74,15 +82,16 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
 ```
 hollowreach/
   core/engine/      energy scheduler, seedable RNG + dice
-  core/model/       Actor, Attributes, character assembly, monster memory
+  core/model/       Actor, Attributes, character assembly, monster memory,
+                    Item, Inventory, Equipment
   core/world/       Level (persistent grid + fog), tiles, FOV
-  core/generation/  random dungeon generators (DL-keyed spawns/features)
-  core/rules/       combat, calendar/lighting, monster AI
-  content/          world.py + data tables: ancestries, classes, omens, monsters
+  core/generation/  random dungeon generators, loot rolls
+  core/rules/       combat, calendar/lighting, AI, identification, consumables
+  content/          world.py + data tables: ancestries, classes, omens, monsters, items
   ui/               ASCII renderer + message log
   persistence/      single-save permadeath service
 main.py             entry point (interactive + headless demo)
-tests/              37 unittest tests
+tests/              53 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -92,7 +101,7 @@ New content is data in `content/`; new systems are resolvers in
 ## Roadmap to a shippable product
 
 **Game depth**
-1. Inventory, equip slots, BUC status, identification, items/potions/scrolls
+1. ~~Inventory, equip slots, BUC status, identification, items/potions/scrolls~~ ✅ **done**
 2. Skills + weapon proficiencies + the full class-power system
 3. Magic (PP, spell knowledge/power, spell list) + mind powers
 4. Overworld, towns/NPCs, shops, quests

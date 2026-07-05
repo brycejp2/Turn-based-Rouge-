@@ -19,6 +19,10 @@ from dataclasses import dataclass, field
 
 from .actor import Actor
 from .attributes import Attributes, ATTRIBUTE_KEYS
+from .inventory import (
+    Inventory, Equipment, carrying_capacity, encumbrance_penalty,
+)
+from ..generation.loot import make_item
 from ..engine.rng import Rng
 from ...content.races import RACES, RaceDef
 from ...content.classes import CLASSES, ClassDef
@@ -52,6 +56,14 @@ class PlayerCharacter:
         self.alignment = race.start_alignment
         self.monster_memory: dict[str, MemoryRecord] = {}
         self.turns = 0
+        self.inventory = Inventory()
+        self.equipment = Equipment()
+
+    def update_encumbrance(self) -> None:
+        """Recompute the carry-weight speed penalty (§5.1)."""
+        capacity = carrying_capacity(self.actor.attributes.St)
+        self.actor.encumbrance_penalty = encumbrance_penalty(
+            self.inventory.total_weight(), capacity)
 
     # -- experience & leveling (§6.1) ------------------------------------
     def xp_to_next_level(self) -> int:
@@ -151,7 +163,38 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
     if "Alertness" in pc.skills:
         actor.alertness_dv += 1
 
+    _grant_starting_gear(pc, rng)
     return pc
+
+
+# Per-class starting kit (weapon + body armour). Unarmed classes skip the
+# weapon so their fists stay in play.
+_STARTING_KITS = {
+    "fighter": ("long_sword", "ring_mail"),
+    "barbarian": ("battle_axe", "leather_armor"),
+    "wizard": ("dagger", "cloak"),
+    "priest": ("mace", "leather_armor"),
+    "healer": ("short_sword", "leather_armor"),
+    "monk": (None, "cloak"),
+}
+
+
+def _grant_starting_gear(pc: "PlayerCharacter", rng: Rng) -> None:
+    weapon_id, armor_id = _STARTING_KITS.get(pc.cls.id, ("short_sword", "leather_armor"))
+    for base_id in (weapon_id, armor_id):
+        if base_id is None:
+            continue
+        item = make_item(base_id, rng, buc="uncursed", enchant=0)
+        pc.inventory.add(item)
+        ok, displaced, _msg = pc.equipment.equip(item)
+        if ok:
+            pc.inventory.remove(item)
+    # A little consumable relief and food.
+    pc.inventory.add(make_item("potion_healing", rng, buc="uncursed",
+                               enchant=0, quantity=2))
+    pc.inventory.add(make_item("ration", rng, buc="uncursed", enchant=0))
+    pc.equipment.recompute(pc.actor)
+    pc.update_encumbrance()
 
 
 def _starting_skill_value(skill: str, attrs: Attributes, rng: Rng) -> int:

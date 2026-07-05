@@ -22,6 +22,8 @@ from .core.generation.dungeon import generate_level
 from .core.model.character import build_player, PlayerCharacter
 from .core.rules import combat, ai
 from .core.rules.calendar import Calendar, sight_radius
+from .core.rules.identification import IdentificationService
+from .core.rules.consumables import use_consumable
 from .ui.render import MessageLog
 from .persistence.save import SaveService
 from .content import world
@@ -52,6 +54,7 @@ class Game:
         self.visible: set = set()
         self.running = True
         self.depth = 0
+        self.id_service = IdentificationService(self.rng)
 
     # -- setup ------------------------------------------------------------
     @classmethod
@@ -131,9 +134,22 @@ class Game:
                 if actor.is_alive:
                     self.scheduler.reschedule(actor, STANDARD_ACTION_COST)
 
-    def _player_act(self, cmd: str) -> bool:
+    def _player_act(self, cmd) -> bool:
         pc = self.pc.actor
         level = self.levels[self.depth]
+
+        # Item actions arrive as (verb, payload) tuples from the front-end.
+        if isinstance(cmd, tuple):
+            verb, arg = cmd
+            handler = {
+                "pickup": lambda: self.pick_up(),
+                "quaff": lambda: self.use_item(arg),
+                "read": lambda: self.use_item(arg),
+                "equip": lambda: self.equip_item(arg),
+                "unequip": lambda: self.unequip_slot(arg),
+                "drop": lambda: self.drop_item(arg),
+            }.get(verb)
+            return handler() if handler else False
 
         if cmd in ("Q", "quit"):
             self.running = False
@@ -146,6 +162,68 @@ class Game:
             return self._ascend()
         # Unknown command: no time passes.
         return False
+
+    # -- item actions (each returns True when it consumes a turn) ---------
+    def pick_up(self) -> bool:
+        pc = self.pc.actor
+        level = self.levels[self.depth]
+        item = level.take_top_item(pc.x, pc.y)
+        if item is None:
+            self.log.add("There is nothing here to pick up.")
+            return False
+        letter = self.pc.inventory.add(item)
+        if letter is None:
+            level.add_item(pc.x, pc.y, item)  # put it back
+            self.log.add("Your pack is full.")
+            return False
+        self.pc.update_encumbrance()
+        self.log.add(f"{letter} - {self.id_service.display_name(item)}.")
+        return True
+
+    def use_item(self, item) -> bool:
+        if item is None:
+            return False
+        msg = use_consumable(self, self.pc, item)
+        self.log.add(msg)
+        if item.quantity > 1:
+            item.quantity -= 1
+        else:
+            self.pc.inventory.remove(item)
+        self.pc.update_encumbrance()
+        return True
+
+    def equip_item(self, item) -> bool:
+        if item is None:
+            return False
+        ok, displaced, msg = self.pc.equipment.equip(item)
+        self.log.add(msg)
+        if ok:
+            self.pc.inventory.remove(item)
+            if displaced is not None:
+                self.pc.inventory.add(displaced)
+            self.pc.equipment.recompute(self.pc.actor)
+            self.pc.update_encumbrance()
+        return ok
+
+    def unequip_slot(self, slot) -> bool:
+        ok, item, msg = self.pc.equipment.unequip(slot)
+        self.log.add(msg)
+        if ok:
+            self.pc.inventory.add(item)
+            self.pc.equipment.recompute(self.pc.actor)
+            self.pc.update_encumbrance()
+        return ok
+
+    def drop_item(self, item) -> bool:
+        if item is None:
+            return False
+        removed = self.pc.inventory.remove(item)
+        if removed is None:
+            return False
+        self.levels[self.depth].add_item(self.pc.actor.x, self.pc.actor.y, removed)
+        self.pc.update_encumbrance()
+        self.log.add(f"You drop {self.id_service.display_name(removed)}.")
+        return True
 
     def _move_or_attack(self, pc, level, dx, dy) -> bool:
         if dx == 0 and dy == 0:
@@ -176,7 +254,7 @@ class Game:
                  tiles.FORGE, tiles.HERB_BUSH):
             self.log.add(f"There is {_article(t.name)} here.")
         if pile:
-            names = ", ".join(getattr(i, "name", "item") for i in pile)
+            names = ", ".join(self.id_service.display_name(i) for i in pile)
             self.log.add(f"You see here: {names}.")
 
     def _descend(self) -> bool:

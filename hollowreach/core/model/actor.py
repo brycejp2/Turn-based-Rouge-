@@ -61,11 +61,12 @@ class Actor:
     hostile: bool = True
     corruptions: int = 0
     monster_id: "str | None" = None
+    encumbrance_penalty: int = 0        # speed lost to carry weight (§5.1)
 
     # -- scheduler contract ----------------------------------------------
     @property
     def speed(self) -> int:
-        spd = self.base_speed
+        spd = self.base_speed - self.encumbrance_penalty
         return max(1, spd)
 
     @property

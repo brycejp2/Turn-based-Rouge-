@@ -19,6 +19,7 @@ from ..engine.rng import Rng
 from ..world.level import Level
 from ..world import tile
 from ..model.character import make_monster
+from .loot import roll_loot
 from ...content.monsters import MONSTERS, spawn_table_for_dl
 
 
@@ -77,8 +78,22 @@ def generate_level(rng: Rng, depth: int = 1, width: int = 70, height: int = 21,
     _place_stairs(level, rng, rooms)
     _inject_features(level, rng, rooms, depth)
     _populate(level, rng, rooms, depth)
+    _place_items(level, rng, rooms, depth)
     level.rooms = rooms  # kept for spawn placement / debugging
     return level
+
+
+def _place_items(level: Level, rng: Rng, rooms: list[Room], depth: int) -> None:
+    """Scatter loot piles keyed to dungeon level (§4.3, §11)."""
+    count = rng.randint(2, 4) + depth // 3
+    for _ in range(count):
+        room = rng.choice(rooms)
+        ix, iy = room.random_floor(rng)
+        if not level.is_walkable(ix, iy):
+            continue
+        if level.tile(ix, iy) in (tile.STAIRS_UP, tile.STAIRS_DOWN):
+            continue
+        level.add_item(ix, iy, roll_loot(rng, depth))
 
 
 def _carve_room(level: Level, room: Room) -> None:

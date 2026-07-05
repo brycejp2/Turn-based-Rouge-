@@ -64,13 +64,26 @@ def run_demo(seed: int, turns: int) -> int:
     return 0
 
 
-def _demo_command(game) -> str:
-    """BFS-driven AI: attack the nearest known monster, else head for the
-    down-stairs, else explore toward the nearest unexplored tile."""
+def _demo_command(game):
+    """BFS-driven AI that also uses the item systems: heal when desperate,
+    grab loot, equip upgrades, fight, descend, explore."""
     pc = game.pc.actor
     level = game.levels[game.depth]
 
-    # 1. Fight the nearest reachable monster we've seen.
+    # 0. Desperation: quaff a potion when critically hurt (use-ID it).
+    if pc.hp * 100 < pc.max_hp * 35:
+        potion = _demo_pick_potion(game)
+        if potion is not None:
+            return ("quaff", potion)
+
+    # 1. Grab anything underfoot, then equip any upgrade in the pack.
+    if level.items_at(pc.x, pc.y):
+        return ("pickup", None)
+    upgrade = _demo_find_upgrade(game)
+    if upgrade is not None:
+        return ("equip", upgrade)
+
+    # 2. Fight the nearest reachable monster we've seen.
     monsters = [m for m in level.monsters() if level.explored[m.y][m.x]]
     if monsters:
         step = _bfs_step(level, pc, {(m.x, m.y) for m in monsters},
@@ -78,7 +91,15 @@ def _demo_command(game) -> str:
         if step is not None:
             return step
 
-    # 2. Descend if we're on / can reach the down-stairs.
+    # 3. Collect known loot piles on the way down.
+    piles = {xy for xy in level.items
+             if level.explored[xy[1]][xy[0]] and level.items_at(*xy)}
+    if piles:
+        step = _bfs_step(level, pc, piles)
+        if step is not None:
+            return step
+
+    # 4. Descend if we're on / can reach the down-stairs.
     if level.tile(pc.x, pc.y).key == "stairs_down":
         return ">"
     if level.stairs_down is not None and level.explored[level.stairs_down[1]][level.stairs_down[0]]:
@@ -86,13 +107,47 @@ def _demo_command(game) -> str:
         if step is not None:
             return step
 
-    # 3. Explore toward the nearest unexplored, reachable tile.
+    # 5. Explore toward the nearest unexplored, reachable tile.
     frontier = _explore_frontier(level, game.visible)
     if frontier:
         step = _bfs_step(level, pc, frontier)
         if step is not None:
             return step
     return "."
+
+
+def _demo_pick_potion(game):
+    """Prefer a known healing potion; else any potion (a desperation gamble)."""
+    known, any_potion = None, None
+    for _letter, item in game.pc.inventory.of_category({"potion"}):
+        if any_potion is None:
+            any_potion = item
+        if item.identified and item.base.effect in ("heal", "extra_heal"):
+            known = item
+    return known or any_potion
+
+
+def _demo_find_upgrade(game):
+    """Return an unequipped item that beats what's worn (or fills an empty slot)."""
+    from hollowreach.core.engine.rng import Dice
+    equip = game.pc.equipment
+    for _letter, item in game.pc.inventory.listing():
+        slot = item.slot
+        if slot is None:
+            continue
+        if item.category == "weapon":
+            cur = equip.weapon()
+            cur_avg = Dice.parse(cur.base.dmg_dice).average if cur else Dice.parse("1d3").average
+            if Dice.parse(item.base.dmg_dice).average > cur_avg:
+                return item
+        else:
+            target = slot if slot != "ring" else "ring1"
+            worn = equip.worn.get(target)
+            if worn is None:
+                return item
+            if item.pv_bonus + item.dv_bonus > worn.pv_bonus + worn.dv_bonus:
+                return item
+    return None
 
 
 def _explore_frontier(level, visible):
@@ -203,51 +258,157 @@ def _pick(label, table, default):
 
 def _curses_loop(stdscr, game):
     import curses
-    from hollowreach.ui.render import render_level, status_line
     curses.curs_set(0)
     stdscr.nodelay(False)
-
-    pending = {"cmd": None}
+    pending = {"cmd": "."}
 
     def get_command():
-        return pending["cmd"] or "."
+        return pending["cmd"]
 
     while game.running and game.pc.actor.is_alive:
-        stdscr.erase()
-        level = game.levels[game.depth]
-        grid = render_level(level, game.pc.actor, game.visible)
-        for y, row in enumerate(grid.split("\n")):
-            _safe_add(stdscr, y, 0, row)
-        h = level.height
-        _safe_add(stdscr, h + 1, 0, status_line(game.pc))
-        _safe_add(stdscr, h + 2, 0, game.calendar.describe())
-        for i, msg in enumerate(game.log.recent(4)):
-            _safe_add(stdscr, h + 4 + i, 0, msg)
-        _safe_add(stdscr, h + 9, 0,
-                  "move: hjkl/yubn  > down  < up  .wait  Q quit")
-        stdscr.refresh()
-
-        key = stdscr.getch()
-        pending["cmd"] = _translate_key(key)
-        if pending["cmd"] == "Q":
+        _draw_main(stdscr, game)
+        action = _handle_key(stdscr, game, stdscr.getch())
+        if action == "QUIT":
             game.running = False
             break
+        if action is None:
+            continue  # non-turn UI action (viewed inventory / cancelled)
+        pending["cmd"] = action
         game.run_turn(get_command)
 
-    stdscr.nodelay(False)
+    _draw_main(stdscr, game)
     _safe_add(stdscr, 0, 0, "  --- press any key to exit ---  ")
     stdscr.refresh()
     stdscr.getch()
 
 
-def _translate_key(key):
+def _draw_main(stdscr, game):
+    from hollowreach.ui.render import render_level, status_line
+    stdscr.erase()
+    level = game.levels[game.depth]
+    for y, row in enumerate(render_level(level, game.pc.actor, game.visible).split("\n")):
+        _safe_add(stdscr, y, 0, row)
+    h = level.height
+    _safe_add(stdscr, h + 1, 0, status_line(game.pc))
+    _safe_add(stdscr, h + 2, 0, game.calendar.describe())
+    for i, msg in enumerate(game.log.recent(4)):
+        _safe_add(stdscr, h + 4 + i, 0, msg)
+    _safe_add(stdscr, h + 9, 0,
+              "hjkl/yubn move  >< stairs  g get  i inv  w wield  T takeoff  "
+              "q quaff  r read  d drop  . wait  Q quit")
+    stdscr.refresh()
+
+
+def _handle_key(stdscr, game, key):
+    """Translate a keypress into a turn action (string/tuple), a non-turn UI
+    action (returns None), or the QUIT sentinel."""
     try:
         ch = chr(key)
     except ValueError:
-        return "."
-    if ch in DIRECTIONS or ch in (">", "<", "Q"):
+        return None
+    if ch in DIRECTIONS or ch in (">", "<"):
         return ch
-    return "."
+    if ch == "Q":
+        return "QUIT"
+    if ch in ("g", ","):
+        return ("pickup", None)
+    if ch == "i":
+        _show_inventory(stdscr, game)
+        return None
+    if ch == "q":
+        it = _select_item(stdscr, game, {"potion"}, "Quaff which potion?")
+        return ("quaff", it) if it else None
+    if ch == "r":
+        it = _select_item(stdscr, game, {"scroll"}, "Read which scroll?")
+        return ("read", it) if it else None
+    if ch == "w":
+        it = _select_item(stdscr, game, None, "Wield/wear what?", equippable=True)
+        return ("equip", it) if it else None
+    if ch == "T":
+        slot = _select_worn(stdscr, game)
+        return ("unequip", slot) if slot else None
+    if ch == "d":
+        it = _select_item(stdscr, game, None, "Drop what?")
+        return ("drop", it) if it else None
+    return None
+
+
+def _select_item(stdscr, game, categories, prompt, equippable=False):
+    items = game.pc.inventory.listing()
+    if equippable:
+        items = [(l, it) for l, it in items if it.slot is not None]
+    elif categories is not None:
+        items = [(l, it) for l, it in items if it.category in categories]
+    if not items:
+        _flash(stdscr, "You have nothing suitable.")
+        return None
+    labelled = [(l, game.id_service.display_name(it), it) for l, it in items]
+    return _menu(stdscr, prompt, labelled)
+
+
+def _select_worn(stdscr, game):
+    worn = game.pc.equipment.worn_items()
+    if not worn:
+        _flash(stdscr, "You are wearing nothing.")
+        return None
+    labelled = [(chr(ord("a") + i), f"{slot}: {game.id_service.display_name(it)}", slot)
+                for i, (slot, it) in enumerate(worn)]
+    return _menu(stdscr, "Take off what?", labelled)
+
+
+def _menu(stdscr, prompt, entries):
+    """entries: list of (key_letter, label, value). Returns chosen value or None."""
+    while True:
+        stdscr.erase()
+        _safe_add(stdscr, 0, 0, prompt + "   (letter to choose, ESC/space to cancel)")
+        for i, (letter, label, _value) in enumerate(entries):
+            _safe_add(stdscr, i + 2, 2, f"{letter}) {label}")
+        stdscr.refresh()
+        key = stdscr.getch()
+        if key in (27, ord(" ")):
+            return None
+        try:
+            ch = chr(key)
+        except ValueError:
+            continue
+        for letter, _label, value in entries:
+            if ch == letter:
+                return value
+
+
+def _show_inventory(stdscr, game):
+    stdscr.erase()
+    _safe_add(stdscr, 0, 0, "Inventory   (any key to return)")
+    row = 2
+    _safe_add(stdscr, row, 0, "Worn:")
+    row += 1
+    worn = game.pc.equipment.worn_items()
+    if not worn:
+        _safe_add(stdscr, row, 2, "(nothing)")
+        row += 1
+    for slot, it in worn:
+        _safe_add(stdscr, row, 2, f"{slot:<7} {game.id_service.display_name(it)}")
+        row += 1
+    row += 1
+    _safe_add(stdscr, row, 0, "Pack:")
+    row += 1
+    if game.pc.inventory.is_empty():
+        _safe_add(stdscr, row, 2, "(empty)")
+        row += 1
+    for letter, it in game.pc.inventory.listing():
+        _safe_add(stdscr, row, 2, f"{letter}) {game.id_service.display_name(it)}")
+        row += 1
+    cap = 800 + game.pc.actor.attributes.St * 120
+    _safe_add(stdscr, row + 1, 0,
+              f"Weight: {game.pc.inventory.total_weight()} / {cap}")
+    stdscr.refresh()
+    stdscr.getch()
+
+
+def _flash(stdscr, message):
+    _safe_add(stdscr, 0, 0, message + "  (press any key)")
+    stdscr.refresh()
+    stdscr.getch()
 
 
 def _safe_add(stdscr, y, x, text):
