@@ -58,6 +58,9 @@ class PlayerCharacter:
         self.turns = 0
         self.inventory = Inventory()
         self.equipment = Equipment()
+        # The Hollowing (see core/rules/blight.py).
+        self.blight_points: float = 0.0
+        self.warps: list[str] = []
 
     def update_encumbrance(self) -> None:
         """Recompute the carry-weight speed penalty (§5.1)."""

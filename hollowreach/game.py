@@ -24,6 +24,7 @@ from .core.rules import combat, ai
 from .core.rules.calendar import Calendar, sight_radius
 from .core.rules.identification import IdentificationService
 from .core.rules.consumables import use_consumable
+from .core.rules.blight import BlightClock
 from .ui.render import MessageLog
 from .persistence.save import SaveService
 from .content import world
@@ -43,6 +44,7 @@ class Game:
     rng: Rng
     seed: int
     save: SaveService = field(default_factory=SaveService)
+    blight_enabled: bool = True   # difficulty toggle (§5.7)
 
     def __post_init__(self):
         self.calendar = Calendar()
@@ -55,13 +57,15 @@ class Game:
         self.running = True
         self.depth = 0
         self.id_service = IdentificationService(self.rng)
+        self.blight = BlightClock(self.rng, enabled=self.blight_enabled)
 
     # -- setup ------------------------------------------------------------
     @classmethod
     def new(cls, pc: PlayerCharacter, rng: Rng, seed: int,
-            permadeath: bool = True) -> "Game":
+            permadeath: bool = True, blight_enabled: bool = True) -> "Game":
         game = cls(pc=pc, rng=rng, seed=seed,
-                   save=SaveService(permadeath=permadeath))
+                   save=SaveService(permadeath=permadeath),
+                   blight_enabled=blight_enabled)
         game._enter_level(1, going_down=True)
         for line in world.opening_lines(pc.actor.name):
             game.log.add(line)
@@ -117,10 +121,13 @@ class Game:
                     if not self.running:
                         return
                     continue
+                self._advance_blight()
                 self._update_fov()
                 self.scheduler.reschedule(self.pc.actor, STANDARD_ACTION_COST)
                 if not self.pc.actor.is_alive:
                     self._on_death()
+                    return
+                if not self.running:   # claimed by the Hollowing
                     return
                 return  # hand control back to the front-end to redraw
             else:
@@ -308,6 +315,20 @@ class Game:
         self.scheduler.remove(target)
         self.levels[self.depth].remove_actor(target)
 
+    def _advance_blight(self) -> None:
+        """Accrue the Hollowing for this turn and surface any Warps (§9)."""
+        events = self.blight.on_turn(self.pc, self.depth)
+        for event in events:
+            self.log.add(event.message)
+            if event.kind == "consumed":
+                self._on_hollowed()
+
+    def _on_hollowed(self) -> None:
+        self.log.add("*** CLAIMED BY THE HOLLOWING — the save is erased. ***")
+        self.pc.actor.alive = False
+        self.save.on_death(self.pc.actor.name)
+        self.running = False
+
     def _on_death(self) -> None:
         for line in world.death_epitaph(self.pc.actor.name, self.depth):
             self.log.add(line)
@@ -320,6 +341,8 @@ class Game:
         level = self.levels[self.depth]
         pc = self.pc.actor
         radius = sight_radius(self.calendar, pc.attributes.Pe)
+        if pc.night_vision:
+            radius = max(radius, 6)   # voidsight Warp pierces the dark
         self.visible = compute_fov(level, pc.x, pc.y, radius)
         for (x, y) in self.visible:
             level.explored[y][x] = True

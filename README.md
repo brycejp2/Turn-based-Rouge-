@@ -9,8 +9,8 @@ racing a spreading blight — *the Hollowing* — to reach and seal *the
 Sundered Gate* before it claims you.
 
 It's built on a classic-roguelike engine (energy/speed turns, DV/PV
-combat, persistent procedural levels, an approaching corruption clock and
-a divine economy). The **mechanics** come from the roguelike tradition;
+combat, persistent procedural levels, the Hollowing's creeping Blight
+clock and a divine economy). The **mechanics** come from the roguelike tradition;
 the **world, names, story and content are all original** to this project
 and live in [`hollowreach/content/`](hollowreach/content/) — see
 [`world.py`](hollowreach/content/world.py). The systems reference in
@@ -63,6 +63,16 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   attribute mods, XP multipliers and traits; twelve birth **omens** (e.g.
   The Hawk +10 speed, The Bastion +PV/To/Wi); starting skills; XP scaled
   by relative speed; per-character monster memory.
+- **The Hollowing (Blight clock)** — the signature pressure mechanic.
+  In the deep places hidden **Blight** accrues every turn at a rate that
+  climbs with depth; cross a threshold and the Hollowing inflicts a
+  **Warp** — an original mutation with jagged upsides and real costs
+  (ashen skin, hollow eyes, voidsight, leaden bones…). Hold too many and
+  you're *claimed by the Hollowing* — a nonstandard game over. Because
+  Blight only builds while you linger, grinding is self-defeating: the
+  clock always pushes you forward. The Warden omen and high Appearance
+  slow it; the rare potion of cleansing sheds it; a difficulty flag
+  (`--no-blight`) turns it off.
 - **Items & equipment** — weapons, armour, potions and scrolls with
   hidden **BUC** (blessed/uncursed/cursed, cursed gear welds on),
   enchantment levels, a letter-indexed inventory with stacking and
@@ -86,12 +96,12 @@ hollowreach/
                     Item, Inventory, Equipment
   core/world/       Level (persistent grid + fog), tiles, FOV
   core/generation/  random dungeon generators, loot rolls
-  core/rules/       combat, calendar/lighting, AI, identification, consumables
-  content/          world.py + data tables: ancestries, classes, omens, monsters, items
+  core/rules/       combat, calendar/lighting, AI, identification, consumables, blight
+  content/          world.py + data tables: ancestries, classes, omens, monsters, items, warps
   ui/               ASCII renderer + message log
   persistence/      single-save permadeath service
 main.py             entry point (interactive + headless demo)
-tests/              53 unittest tests
+tests/              64 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -106,7 +116,7 @@ New content is data in `content/`; new systems are resolvers in
 3. Magic (PP, spell knowledge/power, spell list) + mind powers
 4. Overworld, towns/NPCs, shops, quests
 5. Altars / piety / alignment / prayer / crowning (the divine economy)
-6. The corruption clock + mutation table + cures
+6. ~~The corruption clock + mutation table + cures~~ ✅ **done** (the Hollowing / Blight)
 7. The Sundered Depths spine, the boss, and the standard ending
 8. Remaining ancestries/classes/monsters/artifacts + alternate endings
 
@@ -119,10 +129,12 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 37 tests covering the dice
+`python3 -m unittest discover -s tests` runs 64 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
-connectivity & determinism, and permadeath save consumption.
+connectivity & determinism, permadeath save consumption, the item system
+(BUC, inventory/equipment, identification, consumables), and the Blight
+clock (accrual, Warp application/reversal, cures, the consumed end-state).
 
 ## Licensing / IP
 

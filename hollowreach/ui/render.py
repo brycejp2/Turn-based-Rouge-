@@ -56,12 +56,14 @@ def _cell_glyph(level, player, visible, x, y) -> str:
 
 def status_line(pc) -> str:
     a = pc.actor
+    warps = len(getattr(pc, "warps", []))
+    blight = f"  Warps:{warps}" if warps else ""
     return (
         f"{a.name}  L{a.char_level} {pc.race.name} {pc.cls.name}  "
         f"HP:{a.hp}/{a.max_hp}  PP:{a.pp}/{a.max_pp}  "
         f"DV:{a.dv} PV:{a.pv}  Sp:{a.speed}  "
         f"DL:{a.level.depth if a.level else '-'}  "
-        f"XP:{pc.xp}  Align:{pc.alignment}"
+        f"XP:{pc.xp}  Align:{pc.alignment}{blight}"
     )
 
 

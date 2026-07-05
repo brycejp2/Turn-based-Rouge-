@@ -140,10 +140,12 @@ class Equipment:
             actor.weapon_to_hit = weapon.base.to_hit + weapon.weapon_bonus
             actor.weapon_dmg_bonus = weapon.weapon_bonus
             armor_dv += weapon.base.dv  # parry
+            actor.unarmed = False
         else:
             actor.weapon_dice = "1d3"   # unarmed
             actor.weapon_to_hit = 0
             actor.weapon_dmg_bonus = 0
+            actor.unarmed = True
         actor.armor_dv = armor_dv
         actor.armor_pv = armor_pv
 

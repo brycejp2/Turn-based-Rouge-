@@ -6,7 +6,7 @@ grants small permanent bonuses) is a genre staple; the constellations,
 names and framing here are original to this game.
 
 Effects are a flat dict the character builder folds in at creation —
-attribute mods, speed, a corruption-rate modifier, free talents, fire
+attribute mods, speed, a blight-rate modifier, free talents, fire
 immunity, etc.
 """
 
@@ -35,7 +35,7 @@ STAR_SIGNS = {
                          {"neutral_spell_cost_mult": 0.9},
                          "attuned to balanced magic"),
     "warden": StarSignDef("warden", 4, "The Warden",
-                          {"corruption_mult": 0.81},
+                          {"blight_mult": 0.81},
                           "resists the Hollowing"),
     "ember": StarSignDef("ember", 5, "The Ember",
                          {"fire_immunity": True, "cold_dmg_mult": 1.5,

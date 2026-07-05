@@ -57,6 +57,13 @@ class Actor:
     tactics_dv: int = 0                 # from the tactics slider (§7.3)
     tactics_to_hit: int = 0
 
+    # Warp (Hollowing) contributions — see core/rules/blight.py.
+    warp_dv: int = 0
+    warp_pv: int = 0
+    warp_unarmed_dmg: int = 0
+    night_vision: bool = False
+    unarmed: bool = True                # True while wielding no weapon
+
     alive: bool = True
     hostile: bool = True
     corruptions: int = 0
@@ -81,7 +88,7 @@ class Actor:
         # Truncate toward zero to match the reference integer arithmetic.
         dv = int((dx - 12) / 2) + int((dx - 9) / 2)
         dv += self.armor_dv + self.dodge_dv + self.alertness_dv
-        dv += self.tactics_dv
+        dv += self.tactics_dv + self.warp_dv
         if self.unarmed_dv_per_level and not self._has_body_armor():
             dv += int(self.char_level * self.unarmed_dv_per_level)
         return max(0, dv)
@@ -91,7 +98,7 @@ class Actor:
         """Protection Value — damage soak (§7.2)."""
         to = self.attributes.To
         pv = min(20, (to - 18) // 2) if to > 18 else 0
-        pv += self.armor_pv + self.stoneskin
+        pv += self.armor_pv + self.stoneskin + self.warp_pv
         if self.blessed:
             pv += 1 + (self.char_level // 25)  # +2 at L25, +3 at L50
         return max(0, pv)
@@ -115,6 +122,8 @@ class Actor:
             bonus += st - 15
         if st < 6:
             bonus -= 6 - st
+        if self.unarmed:
+            bonus += self.warp_unarmed_dmg
         return bonus + self.weapon_dmg_bonus
 
     def _has_body_armor(self) -> bool:

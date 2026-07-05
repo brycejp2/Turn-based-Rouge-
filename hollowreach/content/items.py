@@ -75,6 +75,8 @@ _POTIONS = [
              stackable=True, price=200, effect="boost_toughness"),
     ItemBase("potion_mana", "potion of raw mana", "potion", "!", 10,
              stackable=True, price=150, effect="restore_mana"),
+    ItemBase("potion_cleansing", "potion of cleansing", "potion", "!", 10,
+             stackable=True, price=500, effect="cleanse_blight"),
     ItemBase("potion_water", "potion of water", "potion", "!", 10,
              stackable=True, price=10, effect="water"),
     ItemBase("potion_sickness", "potion of sickness", "potion", "!", 10,
@@ -127,6 +129,8 @@ def item_spawn_table(depth: int) -> list:
         weight = 6
         if base.id in ("potion_gain_attributes", "potion_extra_healing"):
             weight = 2  # rarer power items
+        if base.id == "potion_cleansing":
+            weight = 1  # the most precious item in the game (§9.4)
         table.append((base.id, weight))
     # Weapons / armour — tier gated loosely by depth.
     tiered = [

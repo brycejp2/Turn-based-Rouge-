@@ -28,20 +28,22 @@ DEFAULT_ATTRS = {"St": 12, "Le": 11, "Wi": 11, "Dx": 13, "To": 13,
 
 
 def make_game(seed: int, name: str, race: str, cls: str, sign: str,
-              gender: str, permadeath: bool = True) -> Game:
+              gender: str, permadeath: bool = True,
+              blight_enabled: bool = True) -> Game:
     rng = Rng(seed)
     pc = build_player(name, race, cls, sign, gender, dict(DEFAULT_ATTRS), rng)
-    return Game.new(pc, rng, seed, permadeath=permadeath)
+    return Game.new(pc, rng, seed, permadeath=permadeath,
+                    blight_enabled=blight_enabled)
 
 
 # ---------------------------------------------------------------------------
 # Headless demo — a simple greedy AI so the whole stack can be exercised
 # without a terminal (used by CI and `verify`).
 # ---------------------------------------------------------------------------
-def run_demo(seed: int, turns: int) -> int:
+def run_demo(seed: int, turns: int, blight_enabled: bool = True) -> int:
     from hollowreach.ui.render import render_screen
     game = make_game(seed, "Demo", "dwarf", "fighter", "beacon", "male",
-                     permadeath=False)
+                     permadeath=False, blight_enabled=blight_enabled)
 
     print("=== Hollowreach demo run ===")
     print(f"seed={seed}  {game.pc.race.name} {game.pc.cls.name}  "
@@ -215,7 +217,7 @@ def _bfs_step(level, pc, goals, attack_targets=False):
 # ---------------------------------------------------------------------------
 # Interactive curses front-end.
 # ---------------------------------------------------------------------------
-def run_interactive(seed: int) -> int:
+def run_interactive(seed: int, blight_enabled: bool = True) -> int:
     try:
         import curses
     except ImportError:
@@ -223,7 +225,8 @@ def run_interactive(seed: int) -> int:
         return 1
 
     name, race, cls, sign, gender = _prompt_character()
-    game = make_game(seed, name, race, cls, sign, gender)
+    game = make_game(seed, name, race, cls, sign, gender,
+                     blight_enabled=blight_enabled)
     curses.wrapper(_curses_loop, game)
     return 0
 
@@ -425,11 +428,14 @@ def main(argv=None) -> int:
                         help="run a headless AI demo for N turns (default 200)")
     parser.add_argument("--seed", type=int, default=1,
                         help="RNG seed for a reproducible run")
+    parser.add_argument("--no-blight", action="store_true",
+                        help="disable the Hollowing (Blight) pressure clock")
     args = parser.parse_args(argv)
 
+    blight_enabled = not args.no_blight
     if args.demo is not None:
-        return run_demo(args.seed, args.demo)
-    return run_interactive(args.seed)
+        return run_demo(args.seed, args.demo, blight_enabled=blight_enabled)
+    return run_interactive(args.seed, blight_enabled=blight_enabled)
 
 
 if __name__ == "__main__":

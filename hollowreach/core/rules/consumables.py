@@ -86,6 +86,20 @@ def _restore_mana(game, pc, item) -> str:
     return f"Arcane energy returns. (+{amount} PP)"
 
 
+def _cleanse_blight(game, pc, item) -> str:
+    """Purge the Hollowing — the rarest relief in the depths (§9.4)."""
+    if item.buc == CURSED:
+        events = game.blight.add_blight(pc, 60)
+        extra = " ".join(e.message for e in events)
+        return ("The draught is tainted — the Hollowing surges! " + extra).strip()
+    amount = 130 if item.buc == BLESSED else 55
+    events = game.blight.cleanse(pc, amount)
+    if events:
+        shed = ", ".join(e.warp_id.replace("_", " ") for e in events if e.warp_id)
+        return f"A cold clarity washes through you. The {shed} fades."
+    return "A cold clarity washes through you; the Blight recedes a little."
+
+
 def _water(game, pc, item) -> str:
     if item.buc == BLESSED:
         return "You drink some holy water. It is refreshing."
@@ -198,6 +212,7 @@ _EFFECTS = {
     "boost_strength": _boost("St", "strength"),
     "boost_toughness": _boost("To", "toughness"),
     "restore_mana": _restore_mana,
+    "cleanse_blight": _cleanse_blight,
     "water": _water,
     "sickness": _sickness,
     "identify": _identify,
