@@ -1,0 +1,3 @@
+-r requirements.txt
+# Build tooling for producing the Windows/macOS/Linux executable.
+pyinstaller>=6.0

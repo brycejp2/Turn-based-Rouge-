@@ -7,3 +7,9 @@ __pycache__/
 .DS_Store
 build/
 dist/
+
+# PyInstaller build output
+/build/
+/dist/
+/.buildenv/
+*.manifest

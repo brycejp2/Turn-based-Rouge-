@@ -15,25 +15,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hollowreach.core.engine.rng import Rng
-from hollowreach.core.model.character import build_player
 from hollowreach.content.races import RACES, DEFAULT_RACE
 from hollowreach.content.classes import CLASSES, DEFAULT_CLASS
 from hollowreach.content.starsigns import STAR_SIGNS, DEFAULT_STAR_SIGN
 from hollowreach.game import Game, DIRECTIONS
+from hollowreach.bootstrap import new_game, DEFAULT_ATTRS
 
-
-DEFAULT_ATTRS = {"St": 12, "Le": 11, "Wi": 11, "Dx": 13, "To": 13,
-                 "Ch": 9, "Ap": 10, "Ma": 10, "Pe": 11}
-
-
-def make_game(seed: int, name: str, race: str, cls: str, sign: str,
-              gender: str, permadeath: bool = True,
-              blight_enabled: bool = True) -> Game:
-    rng = Rng(seed)
-    pc = build_player(name, race, cls, sign, gender, dict(DEFAULT_ATTRS), rng)
-    return Game.new(pc, rng, seed, permadeath=permadeath,
-                    blight_enabled=blight_enabled)
+# Backwards-compatible alias used throughout the demo/tests.
+make_game = new_game
 
 
 # ---------------------------------------------------------------------------
@@ -478,11 +467,26 @@ def _safe_add(stdscr, y, x, text):
         pass
 
 
+def run_tiles(seed, blight_enabled: bool = True) -> int:
+    """Launch the 2D pygame front-end (the default, windowed client)."""
+    try:
+        from hollowreach.ui.pygame_app import run_pygame
+    except Exception as exc:  # pragma: no cover - env without pygame
+        print(f"Tile UI unavailable ({exc}). Try --ascii or "
+              f"'pip install pygame'.")
+        return 1
+    # A fixed --seed forces a reproducible run; otherwise each run rerolls.
+    return run_pygame(seed if seed is not None else None,
+                      blight_enabled=blight_enabled)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Hollowreach roguelike")
     parser.add_argument("--demo", nargs="?", const=200, type=int,
                         help="run a headless AI demo for N turns (default 200)")
-    parser.add_argument("--seed", type=int, default=1,
+    parser.add_argument("--ascii", action="store_true",
+                        help="use the terminal (curses) client instead of tiles")
+    parser.add_argument("--seed", type=int, default=None,
                         help="RNG seed for a reproducible run")
     parser.add_argument("--no-blight", action="store_true",
                         help="disable the Hollowing (Blight) pressure clock")
@@ -490,8 +494,12 @@ def main(argv=None) -> int:
 
     blight_enabled = not args.no_blight
     if args.demo is not None:
-        return run_demo(args.seed, args.demo, blight_enabled=blight_enabled)
-    return run_interactive(args.seed, blight_enabled=blight_enabled)
+        return run_demo(args.seed if args.seed is not None else 1, args.demo,
+                        blight_enabled=blight_enabled)
+    if args.ascii:
+        return run_interactive(args.seed if args.seed is not None else 1,
+                               blight_enabled=blight_enabled)
+    return run_tiles(args.seed, blight_enabled=blight_enabled)
 
 
 if __name__ == "__main__":

@@ -17,15 +17,22 @@ and live in [`hollowreach/content/`](hollowreach/content/) — see
 [`docs/DESIGN_MECHANICS.md`](docs/DESIGN_MECHANICS.md) is an internal
 design document, not shipped content.
 
-> Status: **playable vertical slice** — a complete, winnable game loop on the engine. This is the base
-> a commercial release is built on; the roadmap below tracks the path to a
-> shippable product. Implemented in dependency-free **Python 3**.
+> Status: **playable vertical slice** — a complete, winnable game loop
+> with a 2D tile client that packages to a Windows `.exe`. The roadmap
+> below tracks the path to a shippable product. The engine, ASCII client
+> and tests are pure-stdlib **Python 3**; only the tile client needs
+> `pygame`.
 
 ## Quick start
 
 ```bash
-# Play (interactive; needs a terminal — on Windows: pip install windows-curses):
+pip install -r requirements.txt   # pygame, for the 2D tile client
+
+# Play — 2D tile client (title screen, character creation, mouse-free):
 python3 main.py
+
+# Play in the terminal instead (ASCII/curses):
+python3 main.py --ascii
 
 # Headless AI demo — exercises the whole stack, good for CI:
 python3 main.py --demo 400 --seed 7
@@ -34,17 +41,17 @@ python3 main.py --demo 400 --seed 7
 python3 -m unittest discover -s tests -v
 ```
 
-In-game keys: `hjkl`/`yubn` move/attack, `>`/`<` stairs, `g` get, `i` inventory, `C` character, `w` wield/wear, `T` take off, `q` quaff, `r` read, `d` drop, `.` wait, `Q` quit.
+In-game keys: arrows or `hjkl`/`yubn` move/attack, `>`/`<` stairs, `g` get,
+`i` inventory, `C` character, `w` wield/wear, `T` take off, `q` quaff,
+`r` read, `d` drop, `.` wait, `Q` quit.
 
-### Windows 11
+### Play on Windows without Python — download the `.exe`
 
-The demo and tests run on a stock Python install. The interactive game
-uses `curses`, which isn't bundled on Windows — install the drop-in:
-
-```powershell
-pip install windows-curses
-python main.py
-```
+Hollowreach builds to a single self-contained **`Hollowreach.exe`** (no
+Python install needed to play). See [`packaging/`](packaging/README.md) —
+on Windows just run `packaging\build_windows.bat` and you get
+`dist\Hollowreach.exe`. The terminal client (`--ascii`) needs
+`pip install windows-curses`; the tile client does not.
 
 Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
 `HOLLOWREACH_SAVE_DIR` environment variable).
@@ -111,6 +118,13 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   360-day / 12-month calendar with day/night sight range.
 - **Permadeath** — one canonical save, deleted on load, erased on death
   (and on victory — the run is complete), all behind a single toggle.
+- **2D tile client + packaging** — a pygame front-end with a title
+  screen, character creation, a tiled play view (map viewport + stats
+  panel with HP/PP/Hollowing bars + message log), inventory/character
+  overlays, item pickers, and win/death screens. All tile art is drawn
+  procedurally in code — no external assets. Builds to a single
+  self-contained **`Hollowreach.exe`** via PyInstaller
+  ([`packaging/`](packaging/README.md)).
 
 ## Architecture
 
@@ -124,10 +138,12 @@ hollowreach/
   core/rules/       combat, AI, calendar, identification, consumables, blight,
                     proficiency, class powers, skills, regen
   content/          world.py + data tables: ancestries, classes, omens, monsters, items, warps
-  ui/               ASCII renderer + message log
+  ui/               ASCII renderer, 2D tile client (pygame_app + procedural tiles)
   persistence/      single-save permadeath service
-main.py             entry point (interactive + headless demo)
-tests/              85 unittest tests
+  bootstrap.py      shared game construction
+main.py             entry point (tiles / --ascii / --demo)
+packaging/          PyInstaller spec + build scripts (-> Hollowreach.exe)
+tests/              93 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -147,15 +163,15 @@ New content is data in `content/`; new systems are resolvers in
 8. Remaining ancestries/classes/monsters/artifacts + alternate endings
 
 **Productization** (chosen direction: original IP, 2D tile graphics)
-- Title screen, save-slot menu, options/settings, audio
-- A 2D tile render layer over the existing ASCII model
-- One-click Windows build (packaged `.exe`)
+- Title screen & character creation ✅ done; save-slot menu, options, audio still to do
+- ~~A 2D tile render layer over the existing ASCII model~~ ✅ **done** (pygame)
+- ~~One-click Windows build (packaged `.exe`)~~ ✅ **done** (PyInstaller)
 - Steam release: Steamworks (achievements, cloud saves), store page,
   the $100 Steam Direct fee
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 85 tests covering the dice
+`python3 -m unittest discover -s tests` runs 93 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system
