@@ -92,7 +92,7 @@ MONSTERS = {
         spawn_dl=6,
     ),
     "dire_wolf": MonsterDef(
-        "dire_wolf", "dire wolf", "d", "4d6", dv=10, pv=2, speed=140, attack="2d6",
+        "dire_wolf", "dire wolf", "d", "4d6", dv=10, pv=2, speed=125, attack="2d6",
         xp_value=22, alignment="neutral", size="medium", types=("animal",),
         spawn_dl=6,
     ),
@@ -114,8 +114,8 @@ MONSTERS = {
     ),
     # The final guardian of the Sundered Gate (§14) — unique.
     "vurgast": MonsterDef(
-        "vurgast", "Vurgast the Unmade", "V", "26d8", dv=18, pv=10, speed=110,
-        attack="4d8", xp_value=1500, alignment="chaotic", size="large",
+        "vurgast", "Vurgast the Unmade", "V", "26d8", dv=18, pv=7, speed=110,
+        attack="3d8", xp_value=1500, alignment="chaotic", size="large",
         types=("demon", "hollowed"), spawn_dl=15, unique=True,
         abilities=("corrupting",),
     ),
@@ -129,7 +129,11 @@ def spawn_table_for_dl(dl: int) -> list:
         if mon.unique:
             continue
         if mon.spawn_dl <= dl:
-            # Weaker (lower-DL) monsters thin out as you descend.
-            weight = max(1, 8 - (dl - mon.spawn_dl))
+            # New types ramp in rare (k=0 → 2) and peak a few levels past
+            # their entry depth, then thin out. The old curve put a new
+            # nasty type at max weight the moment it appeared, which made
+            # each depth band a cliff for an on-curve hero.
+            k = dl - mon.spawn_dl
+            weight = max(1, min(8, 2 + 2 * k, 12 - k))
             table.append((mon.id, weight))
     return table

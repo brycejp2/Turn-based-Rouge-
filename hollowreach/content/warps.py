@@ -71,5 +71,8 @@ WARPS = {
 WARP_IDS = list(WARPS.keys())
 
 # Blight points per Warp, and the count at which the hero is consumed.
-BLIGHT_PER_WARP = 100
+# 150/warp x 12 warps gives a normal-speed hero the turn budget to reach
+# the bottom with purpose (verified by run simulations) while dawdling
+# still gets you claimed.
+BLIGHT_PER_WARP = 150
 MAX_WARPS = len(WARPS)   # the threshold past the last Warp = game over

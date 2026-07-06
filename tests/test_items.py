@@ -85,6 +85,26 @@ class EquipmentTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("cursed", msg.lower())
 
+    def test_two_handed_blocked_by_shield(self):
+        eq = Equipment()
+        ok, _d, _m = eq.equip(make_item("wooden_shield", Rng(1),
+                                        buc=UNCURSED, enchant=0))
+        self.assertTrue(ok)
+        ok, _d, msg = eq.equip(make_item("battle_axe", Rng(1),
+                                         buc=UNCURSED, enchant=0))
+        self.assertFalse(ok)
+        self.assertIn("both hands", msg)
+
+    def test_shield_blocked_by_two_handed(self):
+        eq = Equipment()
+        ok, _d, _m = eq.equip(make_item("battle_axe", Rng(1),
+                                        buc=UNCURSED, enchant=0))
+        self.assertTrue(ok)
+        ok, _d, msg = eq.equip(make_item("wooden_shield", Rng(1),
+                                         buc=UNCURSED, enchant=0))
+        self.assertFalse(ok)
+        self.assertIn("both hands", msg)
+
     def test_ring_uses_two_slots(self):
         eq = Equipment()
         # No ring items in the starter set, so fake two via a body slot proxy:

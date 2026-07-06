@@ -102,7 +102,10 @@ class PlayerCharacter:
 
     # -- experience & leveling (§6.1) ------------------------------------
     def xp_to_next_level(self) -> int:
-        base = self.actor.char_level * self.actor.char_level * 50
+        # Tuned against full-run simulations: a hero who fights on the way
+        # down should hit ~L6 by mid-depths and ~L10+ near the bottom.
+        lvl = self.actor.char_level
+        base = lvl * lvl * 25 + lvl * 25
         return int(base * self.race.xp_mult * self.cls_xp_bias())
 
     def cls_xp_bias(self) -> float:
@@ -196,6 +199,12 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
     pc = PlayerCharacter(actor, race, cls, sign, gender)
     # Omen regeneration bonus (e.g. the Beacon).
     pc.regen_mult = sign.effects.get("hp_regen_mult", 1.0)
+    # Casters channel power back faster — without this a wizard casts two
+    # spells and then waits out a hundred-turn drought.
+    if cls.caster_type == "arcane":
+        pc.pp_regen_mult = 0.45
+    elif cls.caster_type == "clerical":
+        pc.pp_regen_mult = 0.6
 
     # Assemble starting skills: universal + race + class + sign grants (§5.2).
     skill_names = ["Climbing", "First Aid", "Haggling", "Listening"]
@@ -280,8 +289,9 @@ def make_monster(mdef: MonsterDef, rng: Rng, depth: int = 1,
     actor.base_speed = mdef.speed
     actor.max_hp = actor.hp = hp
     actor.char_level = 1 + level_bonus
-    # DV ~= table value + 0.7*level (§12.1); PV straight from the def.
-    actor.armor_dv = int(mdef.dv + 0.7 * (depth + level_bonus)) - \
+    # DV grows gently with depth (steeper slopes made mid-game monsters
+    # unhittable for an on-curve hero — verified by run simulations).
+    actor.armor_dv = int(mdef.dv + 0.45 * (depth + level_bonus)) - \
         ((attrs.Dx - 12) // 2 + (attrs.Dx - 9) // 2)
     actor.armor_pv = mdef.pv
     actor.weapon_dice = mdef.attack

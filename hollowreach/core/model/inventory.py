@@ -87,6 +87,18 @@ class Equipment:
         target = self._target_slot(item)
         if target is None:
             return False, None, f"You can't wear the {item.name}."
+        # Two-handed weapons need both hands; a shield blocks them (and
+        # vice versa). The player must free the other slot first.
+        if target == "weapon" and item.base.two_handed and self.worn["shield"]:
+            return False, None, (
+                f"You need both hands for the {item.name} — "
+                f"your shield is in the way.")
+        if target == "shield":
+            weapon = self.worn["weapon"]
+            if weapon is not None and weapon.base.two_handed:
+                return False, None, (
+                    f"Your {weapon.name} needs both hands — "
+                    f"you can't hold a shield too.")
         current = self.worn[target]
         if current is not None and current.buc == CURSED:
             current.buc_known = True

@@ -83,8 +83,13 @@ def _demo_command(game):
     if upgrade is not None:
         return ("equip", upgrade)
 
-    # 2. Fight the nearest reachable monster we've seen.
-    monsters = [m for m in level.monsters() if level.explored[m.y][m.x]]
+    # 2. Fight monsters that are visible and *engaged* (within 3 tiles).
+    # Chasing distant or merely-remembered monsters is a trap: wanderers
+    # never get caught, detours pile up damage, and the Blight clock eats
+    # the wasted turns (found via run tracing). Chasers come to you.
+    monsters = [m for m in level.monsters()
+                if (m.x, m.y) in game.visible
+                and max(abs(m.x - pc.x), abs(m.y - pc.y)) <= 3]
     if monsters:
         step = _bfs_step(level, pc, {(m.x, m.y) for m in monsters},
                          attack_targets=True)
@@ -108,10 +113,38 @@ def _demo_command(game):
         if step is not None:
             return step
 
-    # 5. Explore toward the nearest unexplored, reachable tile.
+    # 4. Explore toward the frontier. The chosen target is *sticky* —
+    # re-picking the nearest tile every step makes the AI dither (left,
+    # right, left...) whenever the frontier shifts, wasting turns that the
+    # Blight clock punishes.
     frontier = _explore_frontier(level, game.visible)
     if frontier:
+        # Keep walking to the committed goal until we stand on it (it may
+        # leave the frontier as we approach — that's fine, it's still the
+        # anchor that stops left/right dithering).
+        goal = getattr(game, "_demo_goal", None)
+        if goal is not None and goal != (pc.x, pc.y) and level.is_walkable(*goal):
+            step = _bfs_step(level, pc, {goal})
+            if step is not None and step != ".":
+                return step
+        game._demo_goal = _bfs_goal(level, pc, frontier)
         step = _bfs_step(level, pc, frontier)
+        if step is not None:
+            return step
+
+    # 5. Everything reachable is blocked by monsters (a clogged corridor):
+    # fight through toward the objective rather than waiting forever.
+    objective = None
+    if level.is_final and level.gate is not None:
+        objective = level.gate
+    elif level.stairs_down is not None:
+        objective = level.stairs_down
+    if objective is not None:
+        step = _bfs_step(level, pc, {objective}, through_monsters=True)
+        if step is not None:
+            return step
+    if frontier:
+        step = _bfs_step(level, pc, frontier, through_monsters=True)
         if step is not None:
             return step
     return "."
@@ -165,20 +198,36 @@ def _demo_find_upgrade(game):
     """Return an unequipped item that beats what's worn (or fills an empty slot)."""
     from hollowreach.core.engine.rng import Dice
     equip = game.pc.equipment
+    wielded = equip.weapon()
+
+    def _welded(worn_item):
+        # A known-cursed worn item can't come off; don't retry forever.
+        return (worn_item is not None and worn_item.buc == "cursed"
+                and worn_item.buc_known)
+
     for _letter, item in game.pc.inventory.listing():
         slot = item.slot
         if slot is None:
             continue
         if item.category == "weapon":
-            cur = equip.weapon()
-            cur_avg = Dice.parse(cur.base.dmg_dice).average if cur else Dice.parse("1d3").average
+            # Respect the hands rule: no two-handers while a shield is worn.
+            if item.base.two_handed and equip.worn.get("shield"):
+                continue
+            if _welded(wielded):
+                continue
+            cur_avg = (Dice.parse(wielded.base.dmg_dice).average
+                       if wielded else Dice.parse("1d3").average)
             if Dice.parse(item.base.dmg_dice).average > cur_avg:
                 return item
         else:
+            if slot == "shield" and wielded is not None and wielded.base.two_handed:
+                continue
             target = slot if slot != "ring" else "ring1"
             worn = equip.worn.get(target)
             if worn is None:
                 return item
+            if _welded(worn):
+                continue
             if item.pv_bonus + item.dv_bonus > worn.pv_bonus + worn.dv_bonus:
                 return item
     return None
@@ -199,14 +248,27 @@ def _explore_frontier(level, visible):
     return frontier
 
 
-def _bfs_step(level, pc, goals, attack_targets=False):
-    """Return the direction key of the first step on the shortest path to
-    any goal cell, or ``None`` if unreachable.  With ``attack_targets`` the
-    goal cells may hold a monster (the final bump becomes an attack)."""
+def _bfs_step(level, pc, goals, attack_targets=False, through_monsters=False):
+    """First step (direction key) of the shortest path to any goal, or None."""
+    return _bfs(level, pc, goals, attack_targets, through_monsters)[0]
+
+
+def _bfs_goal(level, pc, goals, attack_targets=False, through_monsters=False):
+    """The goal cell the shortest path reaches, or None."""
+    return _bfs(level, pc, goals, attack_targets, through_monsters)[1]
+
+
+def _bfs(level, pc, goals, attack_targets=False, through_monsters=False):
+    """Shortest path to any goal cell: returns ``(first_step_key, goal)``.
+
+    ``attack_targets``: goal cells may hold a monster (the final bump is an
+    attack).  ``through_monsters``: monsters don't block the path at all —
+    if the first step lands on one, the bump attacks it, which still makes
+    progress (used to fight through clogged corridors)."""
     from collections import deque
     start = (pc.x, pc.y)
     if start in goals:
-        return "."
+        return ".", start
     prev = {start: None}
     queue = deque([start])
     found = None
@@ -225,7 +287,9 @@ def _bfs_step(level, pc, goals, attack_targets=False):
             if not level.is_walkable(nx, ny):
                 continue
             blocker = level.actor_at(nx, ny)
-            if blocker is not None and blocker is not pc and not (is_goal and attack_targets):
+            if (blocker is not None and blocker is not pc
+                    and not through_monsters
+                    and not (is_goal and attack_targets)):
                 continue
             prev[(nx, ny)] = (cx, cy)
             if is_goal:
@@ -234,7 +298,7 @@ def _bfs_step(level, pc, goals, attack_targets=False):
                 break
             queue.append((nx, ny))
     if found is None:
-        return None
+        return None, None
     # Walk back to the first step from start.
     node = found
     while prev[node] != start:
@@ -242,8 +306,8 @@ def _bfs_step(level, pc, goals, attack_targets=False):
     dx, dy = node[0] - pc.x, node[1] - pc.y
     for key, delta in DIRECTIONS.items():
         if delta == (dx, dy):
-            return key
-    return "."
+            return key, found
+    return ".", found
 
 
 # ---------------------------------------------------------------------------
@@ -500,7 +564,8 @@ def _show_character(stdscr, game):
 
     line(f"{a.name} — level {a.char_level} {pc.race.name} {pc.cls.name} "
          f"(born under {pc.sign.name})")
-    line(f"Alignment: {pc.alignment}    XP: {pc.xp}")
+    line(f"Alignment: {pc.alignment}    XP: {pc.xp} "
+         f"(next level at {pc.xp_to_next_level()})")
     row += 1
     line("Attributes:")
     attr_str = "   ".join(f"{k} {a.attributes.value(k):>2}" for k in ATTRIBUTE_KEYS)

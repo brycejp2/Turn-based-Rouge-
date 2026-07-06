@@ -62,11 +62,16 @@ class Calendar:
 
 
 def sight_radius(calendar: Calendar, perception: int, in_wilderness: bool = False) -> int:
-    """FOV radius from time of day + Perception (§4.1)."""
-    if calendar.is_day:
-        base = 8 if not in_wilderness else 11
+    """FOV radius from Perception, plus time of day outdoors (§4.1).
+
+    Underground the hero carries a light: sight is steady, and day or
+    night above doesn't reach you (radius-2 dungeon nights made play a
+    blind stumble). Outdoors — the future overworld — daylight matters.
+    """
+    if in_wilderness:
+        base = 11 if calendar.is_day else 5
     else:
-        base = 5 if in_wilderness else 2
+        base = 7
     # Perception widens vision (10 is the vision breakpoint, §5.1).
     base += max(0, (perception - 10) // 4)
     return max(1, base)

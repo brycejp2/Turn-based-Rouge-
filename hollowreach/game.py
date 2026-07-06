@@ -142,6 +142,10 @@ class Game:
                 return  # hand control back to the front-end to redraw
             else:
                 self._monster_act(actor, level)
+                if not self.running:
+                    # The Hollowing claimed the hero mid-monster-turn
+                    # (_on_hollowed already ended the run).
+                    return
                 if not self.pc.actor.is_alive:
                     # A monster landed the killing blow — end the run here,
                     # otherwise the dead PC never pops and monsters loop.
@@ -364,8 +368,8 @@ class Game:
             self.log.add("There are no stairs up here.")
             return False
         if self.depth <= 1:
-            self.log.add("You climb out toward the surface. (Leaving the Chain "
-                         "would end your quest — staying.)")
+            self.log.add("You look up toward daylight — but the Gate below "
+                         "still stands open. Your task is down, not out.")
             return False
         level.remove_actor(self.pc.actor)
         self._enter_level(self.depth - 1, going_down=False)
@@ -383,7 +387,10 @@ class Game:
             from .content.monsters import MONSTERS
             mdef = MONSTERS.get(monster.monster_id)
             if mdef is not None and "corrupting" in mdef.abilities:
-                events = self.blight.add_blight(self.pc, 35)
+                # 15 points per blow: three hits from the hollowed cost a
+                # third of a Warp — scary, but it doesn't dwarf the ambient
+                # clock the way the old 35 did.
+                events = self.blight.add_blight(self.pc, 15)
                 self.pc.refresh_combat()
                 for event in events:
                     self.log.add(event.message)
@@ -394,8 +401,11 @@ class Game:
         from .content.monsters import MONSTERS
         mdef = MONSTERS.get(target.monster_id)
         xp = mdef.xp_value if mdef else 5
-        # XP scales with relative speed (§6.1).
-        xp = int(xp * (target.speed / max(1, self.pc.actor.speed)))
+        # XP scales with relative speed (§6.1) and with depth — deep spawns
+        # are tougher (DV scaling), so they pay accordingly. This keeps the
+        # hero's level curve in step with the descent.
+        xp = int(xp * (target.speed / max(1, self.pc.actor.speed))
+                 * (1 + 0.15 * self.depth))
         self.pc.note_kill(target.monster_id)
         for msg in self.pc.award_xp(max(1, xp)):
             self.log.add(msg)

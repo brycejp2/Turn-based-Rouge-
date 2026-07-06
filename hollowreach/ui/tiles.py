@@ -69,6 +69,7 @@ ITEM_COLORS = {
     "girdle": (150, 150, 162),
     "food": (172, 122, 82),
     "ring": (210, 190, 110),
+    "spellbook": (156, 100, 200),
 }
 ITEM_DEFAULT = (200, 200, 120)
 
@@ -214,6 +215,11 @@ class TileAtlas:
             pygame.draw.circle(s, color, (cx, cx), n // 4)
         elif category == "ring":
             pygame.draw.circle(s, color, (cx, cx), n // 4, 2)
+        elif category == "spellbook":
+            pygame.draw.rect(s, color, (5, 5, n - 10, n - 9), border_radius=2)
+            pygame.draw.rect(s, _darken(color), (5, 5, n - 10, n - 9), 1,
+                             border_radius=2)
+            pygame.draw.line(s, _lighten(color), (cx, 7), (cx, n - 7), 1)
         else:  # armour and the rest → a shield
             pygame.draw.polygon(s, color, [(cx, 4), (n - 5, 8),
                                            (cx, n - 4), (5, 8)])

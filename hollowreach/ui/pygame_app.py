@@ -220,6 +220,8 @@ def draw_character(surf, fonts, game):
     y = 60
     text(box, ui, f"Level {a.char_level} {pc.race.name} {pc.cls.name} "
          f"— {pc.sign.name}", 20, y); y += 28
+    text(box, small, f"XP {pc.xp}  (next level at {pc.xp_to_next_level()})",
+         20, y); y += 24
     attr = "   ".join(f"{k} {a.attributes.value(k)}" for k in ATTRIBUTE_KEYS)
     text(box, small, attr, 20, y); y += 26
     text(box, small, f"DV {a.dv}   PV {a.pv}   to-hit {a.melee_to_hit}   "

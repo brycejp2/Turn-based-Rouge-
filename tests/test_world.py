@@ -24,10 +24,13 @@ class CalendarTests(unittest.TestCase):
         self.assertEqual(cal.month_name(), "Warden")
         self.assertEqual(cal.day_of_month, 1)
 
-    def test_night_reduces_sight(self):
+    def test_night_reduces_sight_outdoors_only(self):
         day = Calendar(ticks=12 * TICKS_PER_HOUR)     # noon
         night = Calendar(ticks=1 * TICKS_PER_HOUR)    # 01:00
-        self.assertGreater(sight_radius(day, 10), sight_radius(night, 10))
+        # Outdoors, daylight matters; underground the hero's light is steady.
+        self.assertGreater(sight_radius(day, 10, in_wilderness=True),
+                           sight_radius(night, 10, in_wilderness=True))
+        self.assertEqual(sight_radius(day, 10), sight_radius(night, 10))
 
     def test_perception_widens_sight(self):
         cal = Calendar(ticks=12 * TICKS_PER_HOUR)
@@ -127,6 +130,23 @@ class SavePermadeathTests(unittest.TestCase):
             svc.save("hero", {"hp": 5})
             svc.load("hero")
             self.assertTrue(svc.exists("hero"))   # kept when permadeath off
+
+
+class SpawnRampTests(unittest.TestCase):
+    def test_new_monster_types_ramp_in_rare(self):
+        """A type entering at its spawn depth must be rarer than it is a few
+        levels deeper (the old curve made every new depth a cliff)."""
+        from hollowreach.content.monsters import spawn_table_for_dl, MONSTERS
+        entry = MONSTERS["ogre"].spawn_dl
+        at_entry = dict(spawn_table_for_dl(entry))["ogre"]
+        deeper = dict(spawn_table_for_dl(entry + 3))["ogre"]
+        self.assertLess(at_entry, deeper)
+
+    def test_old_types_fade_out(self):
+        from hollowreach.content.monsters import spawn_table_for_dl
+        rat_shallow = dict(spawn_table_for_dl(4))["rat"]
+        rat_deep = dict(spawn_table_for_dl(14))["rat"]
+        self.assertLess(rat_deep, rat_shallow)
 
 
 if __name__ == "__main__":

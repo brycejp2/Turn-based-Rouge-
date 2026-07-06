@@ -117,12 +117,18 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
 - **A complete, winnable loop** — descend the Sundered Depths to the
   bottom (depth 15), where the **Sundered Gate** is guarded by the unique
   boss **Vurgast the Unmade**. Defeat him and step to the Gate to **seal
-  it and win**; the Gate rejects you while the guardian lives. The
-  descent is balanced so a strong, focused run reaches the bottom with a
-  handful of Warps to spare — but dawdling lets the Hollowing claim you
-  first. Verified end-to-end: a built hero descends all 15 levels, slays
-  Vurgast and wins. Deeper corrupting foes (wraiths, hollowed husks, and
-  Vurgast) feed the Hollowing when they land a blow.
+  it and win**; the Gate rejects you while the guardian lives. Deeper
+  corrupting foes (wraiths, hollowed husks, and Vurgast) feed the
+  Hollowing when they land a blow.
+- **Simulation-tuned balance** — the difficulty curve is calibrated by
+  running a scripted hero through hundreds of full games: across a
+  16-seed sweep the (deliberately naive) AI **wins ~19% of runs
+  organically** at levels 16–18, the **median run is decided at the
+  bottom (depth 15)**, dawdlers get claimed by the Hollowing at the very
+  end, and early-death variance survives. Monster types ramp in rare at
+  their entry depth and peak deeper; XP scales with depth so the hero's
+  curve keeps pace with the descent; dungeon sight is steady (day/night
+  is saved for the future overworld).
 - **World** — persistent procedural levels keyed to depth, fog-of-war,
   recursive-shadowcasting field of view; loot scattered by depth; a
   360-day / 12-month calendar with day/night sight range.
@@ -153,7 +159,7 @@ hollowreach/
   bootstrap.py      shared game construction
 main.py             entry point (tiles / --ascii / --demo)
 packaging/          PyInstaller spec + build scripts (-> Hollowreach.exe)
-tests/              106 unittest tests
+tests/              110 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -181,7 +187,7 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 106 tests covering the dice
+`python3 -m unittest discover -s tests` runs 110 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system

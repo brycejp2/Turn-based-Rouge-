@@ -170,7 +170,8 @@ def _inject_features(level: Level, rng: Rng, rooms: list[Room], depth: int) -> N
     if rng.one_in(6) and len(rooms) > 2:
         room = rng.choice(rooms[1:-1])
         fx, fy = room.random_floor(rng)
-        level.set_tile(fx, fy, tile.ALTAR)
+        if level.tile(fx, fy) is tile.FLOOR:
+            level.set_tile(fx, fy, tile.ALTAR)
     if rng.one_in(8) and len(rooms) > 2:
         room = rng.choice(rooms[1:-1])
         fx, fy = room.random_floor(rng)
@@ -188,7 +189,7 @@ def _populate(level: Level, rng: Rng, rooms: list[Room], depth: int) -> None:
     if not table:
         return
     # Density grows slowly with depth; never spawn on the up-stair room.
-    count = rng.randint(3, 5) + depth // 2
+    count = rng.randint(3, 5) + depth // 3
     for _ in range(count):
         room = rng.choice(rooms[1:]) if len(rooms) > 1 else rooms[0]
         mx, my = room.random_floor(rng)
