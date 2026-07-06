@@ -62,6 +62,7 @@ class ItemBase:
     effect: "str | None" = None   # consumable effect id
     plural: "str | None" = None
     weapon_skill: "str | None" = None   # proficiency category for weapons
+    teaches: "str | None" = None        # spell id a spellbook grants
 
     def pluralized(self) -> str:
         if self.plural:

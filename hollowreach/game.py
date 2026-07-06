@@ -165,6 +165,7 @@ class Game:
                 "equip": lambda: self.equip_item(arg),
                 "unequip": lambda: self.unequip_slot(arg),
                 "drop": lambda: self.drop_item(arg),
+                "cast": lambda: self.cast_spell(*arg),
             }.get(verb)
             return handler() if handler else False
 
@@ -202,6 +203,8 @@ class Game:
     def use_item(self, item) -> bool:
         if item is None:
             return False
+        if item.base.category == "spellbook":
+            return self._study_book(item)
         msg = use_consumable(self, self.pc, item)
         self.log.add(msg)
         if item.quantity > 1:
@@ -210,6 +213,57 @@ class Game:
             self.pc.inventory.remove(item)
         self.pc.update_encumbrance()
         return True
+
+    def _study_book(self, item) -> bool:
+        """Read a spellbook to learn/refresh its spell (the book is kept)."""
+        from .content.spells import SPELLS
+        spell = SPELLS[item.base.teaches]
+        newly = self.pc.learn_spell(spell.id, castings=15)
+        if newly:
+            self.log.add(f"You study the {item.name} and learn {spell.name}.")
+        else:
+            self.log.add(f"You refresh your grasp of {spell.name}.")
+        return True
+
+    def cast_spell(self, spell_id, direction) -> bool:
+        """Cast a known spell; returns True if a turn was spent (§8)."""
+        from .content.spells import SPELLS
+        from .core.rules import magic
+        pc, a = self.pc, self.pc.actor
+        state = pc.spells.get(spell_id)
+        spell = SPELLS.get(spell_id)
+        if spell is None or state is None or state["castings"] <= 0:
+            self.log.add("You cannot cast that.")
+            return False
+
+        cost = self._spell_cost(spell, state)
+        if a.pp < cost:
+            self.log.add(f"Not enough power to cast {spell.name} "
+                         f"({cost} PP needed).")
+            return False
+        if spell.kind in ("bolt", "ball") and direction in (None, (0, 0)):
+            return False   # aimed spell with no target
+
+        a.pp -= cost
+        state["castings"] -= 1
+        state["casts"] += 1
+        if state["casts"] % 20 == 0:      # power grows with practice (§8.2)
+            state["power"] += 1
+            self.log.add(f"Your command of {spell.name} deepens.")
+        magic.resolve(self, spell, direction, state["power"])
+        return True
+
+    def _spell_cost(self, spell, state) -> int:
+        cost = spell.pp * self.pc.spell_cost_mult
+        eff = self.pc.sign.effects
+        if spell.element == "fire":
+            cost *= eff.get("fire_spell_cost_mult", 1.0)
+        if spell.kind in ("bolt", "ball"):
+            cost *= eff.get("combat_spell_cost_mult", 1.0)
+        cost *= eff.get("neutral_spell_cost_mult", 1.0)
+        # Cost climbs as a spell's remaining knowledge dwindles (§8.2).
+        cost *= 1 + max(0, 20 - state["castings"]) * 0.05
+        return max(1, round(cost))
 
     def equip_item(self, item) -> bool:
         if item is None:

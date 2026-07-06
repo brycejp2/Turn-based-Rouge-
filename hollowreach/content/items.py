@@ -106,7 +106,17 @@ _FOOD = [
              stackable=True, price=30, effect="food"),
 ]
 
-ITEMS = {b.id: b for b in _WEAPONS + _ARMOUR + _POTIONS + _SCROLLS + _FOOD}
+# -- spellbooks (each teaches one spell; not consumed on reading) -----------
+from .spells import SPELLS as _SPELLS  # noqa: E402
+
+_SPELLBOOKS = [
+    ItemBase(f"book_{sid}", f"spellbook of {spell.name}", "spellbook", "=",
+             80, price=200 + spell.pp * 20, teaches=sid)
+    for sid, spell in _SPELLS.items()
+]
+
+ITEMS = {b.id: b for b in
+         _WEAPONS + _ARMOUR + _POTIONS + _SCROLLS + _FOOD + _SPELLBOOKS}
 
 # -- disguise appearance pools ----------------------------------------------
 POTION_APPEARANCES = [
@@ -145,4 +155,7 @@ def item_spawn_table(depth: int) -> list:
         if depth >= min_depth:
             weight = max(1, 5 - abs(depth - min_depth))
             table.append((base_id, weight))
+    # Spellbooks — uncommon finds that reward a caster who reaches them.
+    for book in _SPELLBOOKS:
+        table.append((book.id, 2))
     return table

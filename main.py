@@ -62,11 +62,19 @@ def _demo_command(game):
     pc = game.pc.actor
     level = game.levels[game.depth]
 
-    # 0. Desperation: quaff a potion when critically hurt (use-ID it).
-    if pc.hp * 100 < pc.max_hp * 35:
+    # 0. Desperation: heal-cast, else quaff a potion when critically hurt.
+    if pc.hp * 100 < pc.max_hp * 40:
+        heal = _demo_heal_spell(game)
+        if heal is not None:
+            return ("cast", (heal, None))
         potion = _demo_pick_potion(game)
         if potion is not None:
             return ("quaff", potion)
+
+    # 0b. Casters: blast an aligned, visible monster with a bolt.
+    cast = _demo_offensive_spell(game)
+    if cast is not None:
+        return cast
 
     # 1. Grab anything underfoot, then equip any upgrade in the pack.
     if level.items_at(pc.x, pc.y):
@@ -107,6 +115,39 @@ def _demo_command(game):
         if step is not None:
             return step
     return "."
+
+
+def _demo_heal_spell(game):
+    from hollowreach.content.spells import SPELLS
+    for sid, state in game.pc.spells.items():
+        if SPELLS[sid].kind == "heal" and state["castings"] > 0:
+            if game.pc.actor.pp >= game._spell_cost(SPELLS[sid], state):
+                return sid
+    return None
+
+
+def _demo_offensive_spell(game):
+    """Cast a bolt at the nearest visible monster on a straight line."""
+    from hollowreach.content.spells import SPELLS
+    pc = game.pc.actor
+    level = game.levels[game.depth]
+    bolts = [(sid, s) for sid, s in game.pc.spells.items()
+             if SPELLS[sid].kind == "bolt" and s["castings"] > 0]
+    if not bolts:
+        return None
+    for mon in level.monsters():
+        if (mon.x, mon.y) not in game.visible:
+            continue
+        dx, dy = mon.x - pc.x, mon.y - pc.y
+        if not (dx == 0 or dy == 0 or abs(dx) == abs(dy)):
+            continue
+        sx, sy = (dx > 0) - (dx < 0), (dy > 0) - (dy < 0)
+        for sid, state in bolts:
+            spell = SPELLS[sid]
+            if max(abs(dx), abs(dy)) <= spell.reach and \
+                    pc.pp >= game._spell_cost(spell, state):
+                return ("cast", (sid, (sx, sy)))
+    return None
 
 
 def _demo_pick_potion(game):
@@ -290,8 +331,8 @@ def _draw_main(stdscr, game):
     for i, msg in enumerate(game.log.recent(4)):
         _safe_add(stdscr, h + 4 + i, 0, msg)
     _safe_add(stdscr, h + 9, 0,
-              "hjkl/yubn move  >< stairs  g get  i inv  C char  w wield  T takeoff  "
-              "q quaff  r read  d drop  . wait  Q quit")
+              "hjkl/yubn move  >< stairs  g get  i inv  C char  z cast  w wield  "
+              "T takeoff  q quaff  r read  d drop  . wait  Q quit")
     stdscr.refresh()
 
 
@@ -318,8 +359,11 @@ def _handle_key(stdscr, game, key):
         it = _select_item(stdscr, game, {"potion"}, "Quaff which potion?")
         return ("quaff", it) if it else None
     if ch == "r":
-        it = _select_item(stdscr, game, {"scroll"}, "Read which scroll?")
+        it = _select_item(stdscr, game, {"scroll", "spellbook"},
+                          "Read what?")
         return ("read", it) if it else None
+    if ch == "z":
+        return _cast_flow(stdscr, game)
     if ch == "w":
         it = _select_item(stdscr, game, None, "Wield/wear what?", equippable=True)
         return ("equip", it) if it else None
@@ -373,6 +417,44 @@ def _menu(stdscr, prompt, entries):
         for letter, _label, value in entries:
             if ch == letter:
                 return value
+
+
+def _cast_flow(stdscr, game):
+    """Select a known spell, aim it if needed, return a cast command."""
+    from hollowreach.content.spells import SPELLS
+    if not game.pc.spells:
+        return None
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    entries = []
+    for i, (sid, state) in enumerate(sorted(game.pc.spells.items())):
+        spell = SPELLS[sid]
+        cost = game._spell_cost(spell, state)
+        entries.append((letters[i],
+                        f"{spell.name}  {cost} PP  x{state['castings']}", sid))
+    spell_id = _menu(stdscr, "Cast which spell?", entries)
+    if spell_id is None:
+        return None
+    spell = SPELLS[spell_id]
+    if spell.kind in ("bolt", "ball"):
+        direction = _pick_direction(stdscr)
+        if direction is None:
+            return None
+        return ("cast", (spell_id, direction))
+    return ("cast", (spell_id, None))
+
+
+def _pick_direction(stdscr):
+    stdscr.erase()
+    _safe_add(stdscr, 0, 0, "Aim: direction key (hjkl/yubn), Esc to cancel")
+    stdscr.refresh()
+    key = stdscr.getch()
+    try:
+        ch = chr(key)
+    except ValueError:
+        return None
+    if ch in DIRECTIONS and DIRECTIONS[ch] != (0, 0):
+        return DIRECTIONS[ch]
+    return None
 
 
 def _show_inventory(stdscr, game):
@@ -442,6 +524,14 @@ def _show_character(stdscr, game):
     for i in range(0, len(listing), 3):
         chunk = listing[i:i + 3]
         line("   ".join(f"{n} {v:>3}" for n, v in chunk), 2)
+    if pc.spells:
+        from hollowreach.content.spells import SPELLS
+        row += 1
+        line("Spells known:")
+        for sid, state in sorted(pc.spells.items()):
+            sp = SPELLS[sid]
+            line(f"{sp.name}  ({sp.pp} PP, x{state['castings']}, "
+                 f"power {state['power']})", 2)
     if pc.warps:
         row += 1
         line("The Hollowing has warped you:")

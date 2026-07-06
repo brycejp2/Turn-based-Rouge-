@@ -42,7 +42,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 In-game keys: arrows or `hjkl`/`yubn` move/attack, `>`/`<` stairs, `g` get,
-`i` inventory, `C` character, `w` wield/wear, `T` take off, `q` quaff,
+`i` inventory, `C` character, `z` cast, `w` wield/wear, `T` take off, `q` quaff,
 `r` read, `d` drop, `.` wait, `Q` quit.
 
 ### Play on Windows without Python — download the `.exe`
@@ -96,6 +96,16 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   clock always pushes you forward. The Warden omen and high Appearance
   slow it; the rare potion of cleansing sheds it; a difficulty flag
   (`--no-blight`) turns it off.
+- **Magic** — casters (Wizard/Priest, plus Healer) wield spells fuelled
+  by Power Points (driven by Mana + Willpower). Ten spells across bolts
+  (strike every foe in a line), balls (burst in a Willpower-scaled
+  radius), self-heals, light and blink — with elemental damage (fire /
+  cold / shock / light / force) scaled against monster types (light
+  scorches the hollowed; force is unresisted). Spells are learned from
+  **spellbooks** (found as loot or in a caster's starting kit), grant a
+  pool of **castings** that deplete and refresh, and grow in **power**
+  the more you cast them. Cost scales with class aptitude and omens
+  (the Ember cheapens fire, the Wyrm combat magic). Cast with `z`.
 - **Items & equipment** — weapons, armour, potions and scrolls with
   hidden **BUC** (blessed/uncursed/cursed, cursed gear welds on),
   enchantment levels, a letter-indexed inventory with stacking and
@@ -135,15 +145,15 @@ hollowreach/
                     Item, Inventory, Equipment
   core/world/       Level (persistent grid + fog), tiles, FOV
   core/generation/  random dungeon generators, loot rolls
-  core/rules/       combat, AI, calendar, identification, consumables, blight,
+  core/rules/       combat, AI, calendar, identification, consumables, blight, magic,
                     proficiency, class powers, skills, regen
-  content/          world.py + data tables: ancestries, classes, omens, monsters, items, warps
+  content/          world.py + data: ancestries, classes, omens, monsters, items, warps, spells
   ui/               ASCII renderer, 2D tile client (pygame_app + procedural tiles)
   persistence/      single-save permadeath service
   bootstrap.py      shared game construction
 main.py             entry point (tiles / --ascii / --demo)
 packaging/          PyInstaller spec + build scripts (-> Hollowreach.exe)
-tests/              93 unittest tests
+tests/              106 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -155,7 +165,7 @@ New content is data in `content/`; new systems are resolvers in
 **Game depth**
 1. ~~Inventory, equip slots, BUC status, identification, items/potions/scrolls~~ ✅ **done**
 2. ~~Skills + weapon proficiencies + the full class-power system~~ ✅ **done**
-3. Magic (PP, spell knowledge/power, spell list) + mind powers
+3. ~~Magic (PP, spell knowledge/power, spell list)~~ ✅ **done** (mind powers still to do)
 4. Overworld, towns/NPCs, shops, quests
 5. Altars / piety / alignment / prayer / crowning (the divine economy)
 6. ~~The corruption clock + mutation table + cures~~ ✅ **done** (the Hollowing / Blight)
@@ -171,7 +181,7 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 93 tests covering the dice
+`python3 -m unittest discover -s tests` runs 106 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system

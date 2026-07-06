@@ -161,8 +161,8 @@ def _draw_panel(surf, fonts, game):
     text(surf, small, game.calendar.describe(), x, y, tiles.TEXT_DIM); y += 26
 
     y = WIN_H - 60
-    text(surf, small, "g get  i inv  C sheet  w wield", x, y, tiles.TEXT_DIM); y += 18
-    text(surf, small, "q quaff  r read  T off  d drop", x, y, tiles.TEXT_DIM); y += 18
+    text(surf, small, "g get  i inv  C sheet  z cast", x, y, tiles.TEXT_DIM); y += 18
+    text(surf, small, "w wield  T off  q quaff  r read  d drop", x, y, tiles.TEXT_DIM); y += 18
     text(surf, small, "> < stairs   . wait   Q quit", x, y, tiles.TEXT_DIM)
 
 
@@ -233,6 +233,14 @@ def draw_character(surf, fonts, game):
     for i in range(0, len(listing), 4):
         chunk = listing[i:i + 4]
         text(box, small, "   ".join(f"{n} {v}" for n, v in chunk), 40, y); y += 20
+    if pc.spells:
+        from ..content.spells import SPELLS
+        y += 8
+        text(box, ui, "Spells:", 20, y); y += 24
+        spell_str = "   ".join(
+            f"{SPELLS[s].name} x{st['castings']}"
+            for s, st in sorted(pc.spells.items()))
+        text(box, small, spell_str, 40, y); y += 22
     if pc.warps:
         y += 8
         text(box, ui, "Warps:", 20, y); y += 24
@@ -360,6 +368,8 @@ def _translate(event):
         return ("select", "quaff")
     if key == pygame.K_r:
         return ("select", "read")
+    if key == pygame.K_z:
+        return ("cast", None)
     if key == pygame.K_d:
         return ("select", "drop")
     if key == pygame.K_q and (event.mod & pygame.KMOD_SHIFT):
@@ -373,7 +383,7 @@ def _select_entries(game, verb):
         items = game.pc.inventory.of_category({"potion"})
         return [(l, ids.display_name(it)) for l, it in items], items
     if verb == "read":
-        items = game.pc.inventory.of_category({"scroll"})
+        items = game.pc.inventory.of_category({"scroll", "spellbook"})
         return [(l, ids.display_name(it)) for l, it in items], items
     if verb == "wield":
         items = [(l, it) for l, it in game.pc.inventory.listing() if it.slot]
@@ -519,6 +529,8 @@ def _play_loop(screen, fonts, atlas, clock, game) -> bool:
                 _show_overlay(screen, fonts, atlas, clock, game, value)
             elif kind == "select":
                 _handle_select(screen, fonts, atlas, clock, game, value)
+            elif kind == "cast":
+                _handle_cast(screen, fonts, atlas, clock, game)
 
 
 def _show_overlay(screen, fonts, atlas, clock, game, which):
@@ -549,6 +561,55 @@ def _handle_select(screen, fonts, atlas, clock, game, verb):
     verb_cmd = {"quaff": "quaff", "read": "read", "wield": "equip",
                 "drop": "drop", "takeoff": "unequip"}[verb]
     _run_command(game, (verb_cmd, payload))
+
+
+def _handle_cast(screen, fonts, atlas, clock, game):
+    from ..content.spells import SPELLS
+    if not game.pc.spells:
+        draw_play(screen, fonts, atlas, game)
+        draw_select(screen, fonts, [], "You know no spells.")
+        pygame.display.flip()
+        _wait_key(clock)
+        return
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    entries, mapping = [], {}
+    for i, (sid, state) in enumerate(sorted(game.pc.spells.items())):
+        spell = SPELLS[sid]
+        cost = game._spell_cost(spell, state)
+        letter = letters[i]
+        entries.append((letter, f"{spell.name}  {cost} PP  x{state['castings']}"))
+        mapping[letter] = sid
+    draw_play(screen, fonts, atlas, game)
+    draw_select(screen, fonts, entries, "Cast which spell?")
+    pygame.display.flip()
+    chosen = _wait_letter(clock, list(mapping))
+    if chosen is None:
+        return
+    spell_id = mapping[chosen]
+    if SPELLS[spell_id].kind in ("bolt", "ball"):
+        direction = _pick_direction(screen, fonts, atlas, clock, game)
+        if direction is None:
+            return
+        _run_command(game, ("cast", (spell_id, direction)))
+    else:
+        _run_command(game, ("cast", (spell_id, None)))
+
+
+def _pick_direction(screen, fonts, atlas, clock, game):
+    draw_play(screen, fonts, atlas, game)
+    draw_select(screen, fonts, [], "Aim: a movement key (Esc cancels)")
+    pygame.display.flip()
+    while True:
+        clock.tick(30)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None
+                if event.key in _MOVE and _MOVE[event.key] != ".":
+                    from ..game import DIRECTIONS
+                    return DIRECTIONS[_MOVE[event.key]]
 
 
 def _wait_key(clock):

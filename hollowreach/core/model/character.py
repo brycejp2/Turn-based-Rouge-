@@ -26,6 +26,7 @@ from ..generation.loot import make_item
 from ..rules.proficiency import Proficiencies
 from ..rules.classpowers import apply_level_powers
 from ..rules.skills import apply_skill_bonuses, gain_level_skills
+from ...content.spells import STARTING_SPELLS
 from ..engine.rng import Rng
 from ...content.races import RACES, RaceDef
 from ...content.classes import CLASSES, ClassDef
@@ -73,6 +74,19 @@ class PlayerCharacter:
         self.pp_regen_counter: float = 0.0
         self.auto_buc: bool = False
         self.spell_cost_mult: float = 1.0
+        # Known spells: id -> {"castings", "power", "casts"} (see §8).
+        self.spells: dict[str, dict] = {}
+
+    def learn_spell(self, spell_id: str, castings: int) -> bool:
+        """Learn or refresh a spell from a book. Returns True if newly learned."""
+        state = self.spells.get(spell_id)
+        if state is None:
+            base_power = max(1, 1 + self.actor.attributes.Le // 10)
+            self.spells[spell_id] = {"castings": castings, "power": base_power,
+                                     "casts": 0}
+            return True
+        state["castings"] += castings
+        return False
 
     def refresh_combat(self) -> None:
         """Re-fold equipment, proficiency and skills into the actor's stats."""
@@ -155,16 +169,24 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
         values[key] = max(1, base)
         potentials[key] = max(values[key], values[key] + race.attr_pot.get(key, 0))
 
+    # Casters need a real Mana/Willpower base so PP is usable from level 1.
+    if cls.caster_type == "arcane":
+        values["Ma"] += 6; values["Wi"] += 2
+    elif cls.caster_type == "clerical":
+        values["Ma"] += 4; values["Wi"] += 3
+    for k in ("Ma", "Wi"):
+        potentials[k] = max(potentials[k], values[k])
+
     attrs = Attributes(values, potentials)
 
     actor = Actor(name=name, glyph="@", attributes=attrs, is_player=True)
     actor.base_speed = 100 + sign.effects.get("speed", 0)
 
-    # Starting HP/PP: Toughness drives HP, Mana drives PP (§5.1).
+    # Starting HP/PP: Toughness drives HP, Mana + Willpower drive PP (§5.1).
     to = attrs.To
     ma = attrs.Ma
     actor.max_hp = actor.hp = max(1, to + rng.rnd(6) + 4)
-    actor.max_pp = actor.pp = max(0, (ma - 6) + rng.rnd(4))
+    actor.max_pp = actor.pp = max(0, (ma - 6) + attrs.Wi // 4 + rng.rnd(4))
 
     # Star-sign PV / Dwarf innate stoneskin eligibility.
     actor.armor_pv += sign.effects.get("pv", 0)
@@ -220,6 +242,13 @@ def _grant_starting_gear(pc: "PlayerCharacter", rng: Rng) -> None:
     pc.inventory.add(make_item("potion_healing", rng, buc="uncursed",
                                enchant=0, quantity=2))
     pc.inventory.add(make_item("ration", rng, buc="uncursed", enchant=0))
+
+    # Casters start knowing their tradition's spells, with the books.
+    for spell_id in STARTING_SPELLS.get(pc.cls.id, ()):
+        pc.learn_spell(spell_id, castings=25)
+        pc.inventory.add(make_item(f"book_{spell_id}", rng,
+                                   buc="uncursed", enchant=0))
+
     pc.equipment.recompute(pc.actor)
     pc.update_encumbrance()
 
