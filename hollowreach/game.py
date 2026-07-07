@@ -124,12 +124,14 @@ class Game:
                 if self.won:          # sealed the Gate this action
                     return
                 if not acted:
-                    # Non-time-consuming command (e.g. quit / look): put the
-                    # PC back at the front without advancing time.
+                    # Non-time-consuming command (a wall bump, stairs that
+                    # aren't there, a failed equip...): put the PC back at
+                    # the front without advancing time and RETURN to the
+                    # front-end for fresh input. Interactive clients send a
+                    # fixed command per keypress — looping here re-asked the
+                    # same rejected command forever and froze the game.
                     self.scheduler.add(self.pc.actor, delay_cost=0)
-                    if not self.running:
-                        return
-                    continue
+                    return
                 self._advance_regen()
                 self._advance_blight()
                 self._update_fov()

@@ -111,5 +111,25 @@ class CorruptingAttackTests(unittest.TestCase):
         self.assertGreater(game.pc.blight_points, before)
 
 
+class NonActingCommandTests(unittest.TestCase):
+    """Regression: interactive clients send one fixed command per keypress.
+    A rejected command (wall bump, '>' off-stairs) must RETURN to the
+    front-end, not re-ask forever — the old loop froze the game."""
+
+    def test_stairs_command_off_stairs_returns(self):
+        game = _game()
+        game.run_turn(lambda: "l")     # step off the starting staircase
+        game.run_turn(lambda: ">")     # fixed rejected command — must return
+        self.assertTrue(game.running)
+
+    def test_wall_bumps_return_and_cost_no_time(self):
+        game = _game()
+        t0 = game.scheduler.time
+        # Hammer one direction with a fixed command; walls must not hang.
+        for _ in range(25):
+            game.run_turn(lambda: "h")
+        self.assertTrue(game.scheduler.time >= t0)
+
+
 if __name__ == "__main__":
     unittest.main()

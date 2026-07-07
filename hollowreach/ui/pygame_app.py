@@ -412,6 +412,33 @@ def _run_command(game, command):
 # Top-level loop
 # ==========================================================================
 def run_pygame(seed: "int | None" = None, blight_enabled: bool = True) -> int:
+    try:
+        return _run_pygame(seed, blight_enabled)
+    except Exception:
+        _write_crash_log()
+        raise
+
+
+def _write_crash_log() -> None:
+    """Write the traceback next to the save files.
+
+    The windowed build has no console — without this, a crash is just a
+    window that vanishes and nothing to report.
+    """
+    import os
+    import traceback
+    from ..persistence.save import SAVE_DIR
+    try:
+        os.makedirs(SAVE_DIR, exist_ok=True)
+        path = os.path.join(SAVE_DIR, "crash.log")
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("\n=== Hollowreach crash ===\n")
+            fh.write(traceback.format_exc())
+    except Exception:
+        pass  # never let crash reporting mask the original error
+
+
+def _run_pygame(seed: "int | None", blight_enabled: bool) -> int:
     # Init only display + fonts (no audio yet) to stay quiet and lean.
     pygame.display.init()
     pygame.font.init()
