@@ -181,6 +181,18 @@ class TileAtlas:
         glyph_img = self._glyph_font.render(glyph, True, _lighten(color, 1.6))
         s.blit(glyph_img, glyph_img.get_rect(center=(n // 2, n // 2 + 1)))
 
+    def npc(self, glyph: str) -> pygame.Surface:
+        return self.get(f"npc:{glyph}", lambda s: self._draw_npc(s, glyph))
+
+    def _draw_npc(self, s, glyph):
+        n = self.size
+        friendly = (110, 180, 210)
+        pygame.draw.rect(s, _darken(friendly, 0.5), (2, 2, n - 4, n - 4),
+                         border_radius=n // 5)
+        pygame.draw.rect(s, friendly, (3, 3, n - 6, n - 6), 2, border_radius=n // 5)
+        img = self._glyph_font.render(glyph, True, _lighten(friendly, 1.5))
+        s.blit(img, img.get_rect(center=(n // 2, n // 2 + 1)))
+
     def boss(self, glyph: str) -> pygame.Surface:
         return self.get(f"boss:{glyph}", lambda s: self._draw_boss(s, glyph))
 

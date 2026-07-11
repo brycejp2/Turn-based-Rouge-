@@ -67,22 +67,44 @@ class Game:
         game = cls(pc=pc, rng=rng, seed=seed,
                    save=SaveService(permadeath=permadeath),
                    blight_enabled=blight_enabled)
-        game._enter_level(1, going_down=True)
+        game._roll_shop_stock()
+        game._enter_level(0, going_down=True)   # start in Hearthvale (§4.4)
         for line in world.opening_lines(pc.actor.name):
             game.log.add(line)
         game._schedule_all()
         game._update_fov()
         return game
 
+    def _roll_shop_stock(self) -> None:
+        from .content.towns import SHOP_STOCK
+        from .core.generation.loot import make_item
+        self.shop_stock = []
+        for base_id, qty in SHOP_STOCK:
+            for _ in range(qty):
+                item = make_item(base_id, self.rng, buc="uncursed", enchant=0,
+                                 quantity=1)
+                # The keeper names his wares: shop items are identified.
+                item.reveal()
+                self.id_service.identify_type(item.base)
+                self.shop_stock.append(item)
+        self.pending_shop = False
+
     def _enter_level(self, depth: int, going_down: bool) -> None:
         first_visit = depth not in self.levels
         if first_visit:
             # Deterministic per-depth seed so the world is reproducible.
             level_rng = Rng(self.seed * 1000 + depth)
-            self.levels[depth] = generate_level(
-                level_rng, depth=depth, is_final=(depth >= world.BOTTOM_DEPTH))
+            if depth == 0:
+                from .core.generation.town import generate_town
+                self.levels[depth] = generate_town(level_rng)
+            else:
+                self.levels[depth] = generate_level(
+                    level_rng, depth=depth,
+                    is_final=(depth >= world.BOTTOM_DEPTH))
         level = self.levels[depth]
         self.depth = depth
+        if depth > 0:
+            self.pc.max_depth = max(self.pc.max_depth, depth)
 
         # Place the PC on the appropriate staircase.
         target = level.stairs_up if going_down else level.stairs_down
@@ -100,7 +122,8 @@ class Game:
         self.scheduler = Scheduler(self.scheduler.time)
         level = self.levels[self.depth]
         for actor in level.actors:
-            if actor.is_alive:
+            # Townsfolk idle — scheduling them would run monster AI on them.
+            if actor.is_alive and (actor.is_player or actor.hostile):
                 self.scheduler.add(actor)
 
     # -- main loop --------------------------------------------------------
@@ -310,6 +333,8 @@ class Game:
         nx, ny = pc.x + dx, pc.y + dy
         target = level.actor_at(nx, ny)
         if target is not None and target is not pc and target.is_alive:
+            if not target.hostile:
+                return self._interact(target)   # townsfolk (§4.4)
             result = combat.melee_attack(pc, target, self.rng)
             self.log.add(result.message)
             if result.hit:
@@ -342,6 +367,34 @@ class Game:
         self.save.on_death(self.pc.actor.name)   # run complete (permadeath)
         self.running = False
 
+    # -- townsfolk (§4.4) ------------------------------------------------
+    def _interact(self, npc) -> bool:
+        """Bump a non-hostile NPC: shop, quest talk, or flavour. Free (no turn)."""
+        from .core.rules import quests
+        if npc.role == "shopkeeper":
+            self.pending_shop = True
+            from .content.towns import NPCS
+            for line in NPCS[npc.npc_id].greeting:
+                self.log.add(line)
+        elif npc.role == "quest_giver":
+            for line in quests.talk(self, npc):
+                self.log.add(line)
+        else:
+            from .content.towns import NPCS
+            for line in NPCS[npc.npc_id].greeting:
+                self.log.add(line)
+        return False   # talking and browsing cost no game time
+
+    def buy_item(self, item) -> None:
+        from .core.rules import shop
+        ok, msg = shop.buy(self, item)
+        self.log.add(msg)
+
+    def sell_item(self, item) -> None:
+        from .core.rules import shop
+        ok, msg = shop.sell(self, item)
+        self.log.add(msg)
+
     def _describe_floor(self, level, x, y) -> None:
         t = level.tile(x, y)
         pile = level.items_at(x, y)
@@ -357,27 +410,33 @@ class Game:
         if level.tile(self.pc.actor.x, self.pc.actor.y) is not tiles.STAIRS_DOWN:
             self.log.add("There are no stairs down here.")
             return False
+        leaving_town = level.is_town
         level.remove_actor(self.pc.actor)
         self._enter_level(self.depth + 1, going_down=True)
         self._schedule_all()
         self._update_fov()
-        self.log.add(f"You descend to dungeon level {self.depth}.")
+        if leaving_town:
+            self.log.add("You descend into the Sundered Depths.")
+        else:
+            self.log.add(f"You descend to dungeon level {self.depth}.")
         return True
 
     def _ascend(self) -> bool:
         level = self.levels[self.depth]
+        if level.is_town:
+            self.log.add("You are already on the surface, in Hearthvale.")
+            return False
         if level.tile(self.pc.actor.x, self.pc.actor.y) is not tiles.STAIRS_UP:
             self.log.add("There are no stairs up here.")
-            return False
-        if self.depth <= 1:
-            self.log.add("You look up toward daylight — but the Gate below "
-                         "still stands open. Your task is down, not out.")
             return False
         level.remove_actor(self.pc.actor)
         self._enter_level(self.depth - 1, going_down=False)
         self._schedule_all()
         self._update_fov()
-        self.log.add(f"You climb up to dungeon level {self.depth}.")
+        if self.depth == 0:
+            self.log.add("You climb back into the daylight of Hearthvale.")
+        else:
+            self.log.add(f"You climb up to dungeon level {self.depth}.")
         return True
 
     def _monster_act(self, monster, level) -> None:
@@ -411,6 +470,17 @@ class Game:
         self.pc.note_kill(target.monster_id)
         for msg in self.pc.award_xp(max(1, xp)):
             self.log.add(msg)
+
+        # Quest bookkeeping and a little coin (§11.8, §14).
+        self.pc.total_kills += 1
+        if mdef is not None:
+            for t in mdef.types:
+                self.pc.kills_by_type[t] += 1
+        base_gold = mdef.xp_value if mdef else 3
+        gold = self.rng.randint(0, base_gold) + self.depth
+        if gold > 0:
+            self.pc.gold += gold
+
         self.scheduler.remove(target)
         level = self.levels[self.depth]
         level.remove_actor(target)

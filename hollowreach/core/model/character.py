@@ -15,6 +15,7 @@ scaling DV with dungeon level per §12.1.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 
 from .actor import Actor
@@ -62,6 +63,12 @@ class PlayerCharacter:
         self.turns = 0
         self.inventory = Inventory()
         self.equipment = Equipment()
+        # Town economy & quests (see core/rules/shop.py, quests.py).
+        self.gold: int = 0
+        self.quests: dict[str, dict] = {}
+        self.total_kills: int = 0
+        self.kills_by_type: "Counter" = Counter()
+        self.max_depth: int = 0
         # The Hollowing (see core/rules/blight.py).
         self.blight_points: float = 0.0
         self.warps: list[str] = []

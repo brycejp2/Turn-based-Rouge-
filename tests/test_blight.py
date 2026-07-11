@@ -114,9 +114,9 @@ class ConsumableIntegrationTests(unittest.TestCase):
 class GameLoopIntegrationTests(unittest.TestCase):
     def test_blight_accrues_over_turns_deep(self):
         game = _game()
-        # Pretend we're deep and take several turns.
+        # Pretend we're deep and take several turns (reuse any existing level).
+        game.levels[12] = next(iter(game.levels.values()))
         game.depth = 12
-        game.levels[12] = game.levels[game.depth if game.depth in game.levels else 1]
         for _ in range(30):
             game._advance_blight()
         self.assertGreater(game.pc.blight_points, 0.0)

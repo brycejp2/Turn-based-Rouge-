@@ -105,6 +105,8 @@ def draw_play(surf, fonts, atlas, game):
         py = MAP_Y + (actor.y - cam_y) * TILE
         if actor is level.boss:
             surf.blit(atlas.boss(actor.glyph), (px, py))
+        elif not actor.hostile:
+            surf.blit(atlas.npc(actor.glyph), (px, py))   # townsfolk
         else:
             surf.blit(atlas.creature(actor.glyph, _monster_category(actor)), (px, py))
 
@@ -156,13 +158,21 @@ def _draw_panel(surf, fonts, game):
     ):
         text(surf, small, label, x, y); y += 20
     y += 6
-    depth_note = "  (the Gate)" if game.levels[game.depth].is_final else ""
-    text(surf, ui, f"Depth {game.depth}{depth_note}", x, y, tiles.TEXT); y += 26
+    lvl = game.levels[game.depth]
+    if lvl.is_town:
+        where = "Hearthvale (surface)"
+    elif lvl.is_final:
+        where = f"Depth {game.depth}  (the Gate)"
+    else:
+        where = f"Depth {game.depth}"
+    text(surf, ui, where, x, y, tiles.TEXT); y += 26
+    text(surf, small, f"Gold: {game.pc.gold}", x, y, (230, 200, 90)); y += 22
     text(surf, small, game.calendar.describe(), x, y, tiles.TEXT_DIM); y += 26
 
-    y = WIN_H - 60
-    text(surf, small, "g get  i inv  C sheet  z cast", x, y, tiles.TEXT_DIM); y += 18
+    y = WIN_H - 78
+    text(surf, small, "g get  i inv  C sheet  J quests  z cast", x, y, tiles.TEXT_DIM); y += 18
     text(surf, small, "w wield  T off  q quaff  r read  d drop", x, y, tiles.TEXT_DIM); y += 18
+    text(surf, small, "bump folk to talk/shop", x, y, tiles.TEXT_DIM); y += 18
     text(surf, small, "> < stairs   . wait   Q quit", x, y, tiles.TEXT_DIM)
 
 
@@ -358,10 +368,10 @@ def _translate(event):
         return ("select", "get")
     if key == pygame.K_i:
         return ("overlay", "inventory")
-    if key == pygame.K_c and (event.mod & pygame.KMOD_SHIFT):
-        return ("overlay", "character")
     if key == pygame.K_c:
         return ("overlay", "character")
+    if key == pygame.K_j:
+        return ("overlay", "quests")
     if key == pygame.K_w:
         return ("select", "wield")
     if key == pygame.K_t:
@@ -560,16 +570,107 @@ def _play_loop(screen, fonts, atlas, clock, game) -> bool:
                 _handle_select(screen, fonts, atlas, clock, game, value)
             elif kind == "cast":
                 _handle_cast(screen, fonts, atlas, clock, game)
+            # Bumping the shopkeeper flags a shop to open.
+            if getattr(game, "pending_shop", False):
+                game.pending_shop = False
+                _shop_screen(screen, fonts, atlas, clock, game)
 
 
 def _show_overlay(screen, fonts, atlas, clock, game, which):
     draw_play(screen, fonts, atlas, game)
     if which == "inventory":
         draw_inventory(screen, fonts, game)
+    elif which == "quests":
+        draw_quests(screen, fonts, game)
     else:
         draw_character(screen, fonts, game)
     pygame.display.flip()
     _wait_key(clock)
+
+
+def draw_quests(surf, fonts, game):
+    from ..content.quests import QUESTS
+    from ..core.rules import quests as qrules
+    box = _overlay_box(surf, fonts, "Quest Journal")
+    ui, small = fonts["ui"], fonts["small"]
+    y = 60
+    active = [(qid, st) for qid, st in game.pc.quests.items()
+              if st["state"] == "active"]
+    done = [qid for qid, st in game.pc.quests.items() if st["state"] == "done"]
+    if not active and not done:
+        text(box, small, "No quests yet — talk to the folk of Hearthvale.",
+             20, y, tiles.TEXT_DIM); y += 22
+    for qid, _st in active:
+        q = QUESTS[qid]
+        cur, need = qrules.progress(game.pc, q)
+        text(box, ui, f"{q.title}  ({min(cur, need)}/{need})", 20, y); y += 24
+        text(box, small, q.description, 40, y, tiles.TEXT_DIM); y += 24
+    for qid in done:
+        text(box, small, f"[done] {QUESTS[qid].title}", 20, y, tiles.TEXT_GOOD)
+        y += 22
+    text(box, small, "press any key to return", 20, box.get_height() - 28,
+         tiles.TEXT_DIM)
+    surf.blit(box, (100, 60))
+
+
+def _shop_screen(screen, fonts, atlas, clock, game):
+    """Bram's shop: browse to buy, Tab to switch to selling. Free of time."""
+    from ..core.rules import shop
+    mode = "buy"
+    while True:
+        draw_play(screen, fonts, atlas, game)
+        if mode == "buy":
+            rows = [(it, shop.buy_price(game.pc, it.base.price))
+                    for it in game.shop_stock]
+            title = f"Bram's Wares — buy   (Tab: sell,  Esc: leave)   "\
+                    f"Gold: {game.pc.gold}"
+        else:
+            rows = [(it, shop.sell_price(game.pc, it.base.price))
+                    for _l, it in game.pc.inventory.listing()]
+            title = f"Sell — your pack   (Tab: buy,  Esc: leave)   "\
+                    f"Gold: {game.pc.gold}"
+        letters = "abcdefghijklmnopqrstuvwxyz"
+        box = _overlay_box(screen, fonts, title)
+        small = fonts["small"]
+        yy = 56
+        mapping = {}
+        for i, (it, price) in enumerate(rows[:24]):
+            letter = letters[i]
+            mapping[letter] = it
+            text(box, small, f"{letter})  {game.id_service.display_name(it)}"
+                 f"  —  {price} gold", 24, yy)
+            yy += 22
+        if not rows:
+            text(box, small, "(nothing here)", 24, yy, tiles.TEXT_DIM)
+        screen.blit(box, (60, 40))
+        pygame.display.flip()
+        key = _shop_key(clock)
+        if key is None:
+            return
+        if key == "TAB":
+            mode = "sell" if mode == "buy" else "buy"
+            continue
+        it = mapping.get(key)
+        if it is not None:
+            if mode == "buy":
+                game.buy_item(it)
+            else:
+                game.sell_item(it)
+
+
+def _shop_key(clock):
+    while True:
+        clock.tick(30)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None
+                if event.key == pygame.K_TAB:
+                    return "TAB"
+                if event.unicode and event.unicode.isalpha():
+                    return event.unicode.lower()
 
 
 def _handle_select(screen, fonts, atlas, clock, game, verb):

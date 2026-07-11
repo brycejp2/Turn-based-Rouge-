@@ -42,7 +42,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 In-game keys: arrows or `hjkl`/`yubn` move/attack, `>`/`<` stairs, `g` get,
-`i` inventory, `C` character, `z` cast, `w` wield/wear, `T` take off, `q` quaff,
+`i` inventory, `C` character, `J` quests, `z` cast, `w` wield/wear, `T` take off, `q` quaff,
 `r` read, `d` drop, `.` wait, `Q` quit.
 
 ### Play on Windows without Python — download the `.exe`
@@ -114,6 +114,17 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   per-run appearances until use-identified or read via a scroll of
   identify. Working consumables — healing, gain attributes, enchant
   weapon/armour, remove curse, magic mapping, teleport, and more.
+- **The surface hub — Hearthvale (town, NPCs, shops, quests, gold)** — a
+  run begins in the safe village at the mouth of the Depths, and you can
+  climb back to it between dives. **Bram the Trader** runs a shop: buy
+  potions (including the precious potion of cleansing), scrolls, and gear,
+  or sell your loot — prices flex with Charisma and Haggling. **Elder
+  Maroc** and **Sister Ferelith** hand out **quests** (cull vermin, reach
+  depth 5, destroy the hollowed) that the run tracks automatically and pay
+  out gold, XP, and a blessed cleansing draught when you return. Monsters
+  drop **gold**, giving the whole thing an economy loop: earn it deep,
+  spend it in town. Bump folk to talk or shop; `J` opens the quest
+  journal.
 - **A complete, winnable loop** — descend the Sundered Depths to the
   bottom (depth 15), where the **Sundered Gate** is guarded by the unique
   boss **Vurgast the Unmade**. Defeat him and step to the Gate to **seal
@@ -150,16 +161,16 @@ hollowreach/
   core/model/       Actor, Attributes, character assembly, monster memory,
                     Item, Inventory, Equipment
   core/world/       Level (persistent grid + fog), tiles, FOV
-  core/generation/  random dungeon generators, loot rolls
-  core/rules/       combat, AI, calendar, identification, consumables, blight, magic,
+  core/generation/  dungeon + town generators, loot rolls
+  core/rules/       combat, AI, calendar, id, consumables, blight, magic, shop, quests,
                     proficiency, class powers, skills, regen
-  content/          world.py + data: ancestries, classes, omens, monsters, items, warps, spells
+  content/          world.py + data: ancestries, classes, omens, monsters, items, warps, spells, towns, quests
   ui/               ASCII renderer, 2D tile client (pygame_app + procedural tiles)
   persistence/      single-save permadeath service
   bootstrap.py      shared game construction
 main.py             entry point (tiles / --ascii / --demo)
 packaging/          PyInstaller spec + build scripts (-> Hollowreach.exe)
-tests/              110 unittest tests
+tests/              126 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -172,7 +183,7 @@ New content is data in `content/`; new systems are resolvers in
 1. ~~Inventory, equip slots, BUC status, identification, items/potions/scrolls~~ ✅ **done**
 2. ~~Skills + weapon proficiencies + the full class-power system~~ ✅ **done**
 3. ~~Magic (PP, spell knowledge/power, spell list)~~ ✅ **done** (mind powers still to do)
-4. Overworld, towns/NPCs, shops, quests
+4. ~~Overworld, towns/NPCs, shops, quests~~ ✅ **done** (Hearthvale hub)
 5. Altars / piety / alignment / prayer / crowning (the divine economy)
 6. ~~The corruption clock + mutation table + cures~~ ✅ **done** (the Hollowing / Blight)
 7. ~~The Sundered Depths spine, the boss, and the standard ending~~ ✅ **done** (winnable!)
@@ -187,7 +198,7 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 110 tests covering the dice
+`python3 -m unittest discover -s tests` runs 126 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system

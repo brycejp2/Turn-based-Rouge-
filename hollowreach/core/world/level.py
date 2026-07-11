@@ -33,6 +33,8 @@ class Level:
         self.is_final: bool = False
         self.gate: "tuple[int, int] | None" = None
         self.boss = None
+        # The safe surface hub (§4.4); depth 0.
+        self.is_town: bool = False
 
     # -- geometry ---------------------------------------------------------
     def in_bounds(self, x: int, y: int) -> bool:
@@ -69,7 +71,14 @@ class Level:
             self.actors.remove(actor)
 
     def monsters(self) -> Iterable:
-        return [a for a in self.actors if a.is_alive and not a.is_player]
+        """Living hostiles (excludes the PC and friendly townsfolk)."""
+        return [a for a in self.actors
+                if a.is_alive and not a.is_player and a.hostile]
+
+    def npcs(self) -> Iterable:
+        """Living non-hostile actors — shopkeepers, quest-givers, folk."""
+        return [a for a in self.actors
+                if a.is_alive and not a.is_player and not a.hostile]
 
     # -- items ------------------------------------------------------------
     def items_at(self, x: int, y: int) -> list:

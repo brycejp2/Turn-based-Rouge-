@@ -374,6 +374,9 @@ def _curses_loop(stdscr, game):
             continue  # non-turn UI action (viewed inventory / cancelled)
         pending["cmd"] = action
         game.run_turn(get_command)
+        if getattr(game, "pending_shop", False):
+            game.pending_shop = False
+            _shop_screen_curses(stdscr, game)
 
     _draw_main(stdscr, game)
     banner = ("  *** YOU SEALED THE GATE — YOU WIN! ***  " if game.won
@@ -395,8 +398,8 @@ def _draw_main(stdscr, game):
     for i, msg in enumerate(game.log.recent(4)):
         _safe_add(stdscr, h + 4 + i, 0, msg)
     _safe_add(stdscr, h + 9, 0,
-              "hjkl/yubn move  >< stairs  g get  i inv  C char  z cast  w wield  "
-              "T takeoff  q quaff  r read  d drop  . wait  Q quit")
+              "hjkl/yubn move  >< stairs  g get  i inv  C char  J quests  z cast  "
+              "w wield  T off  q quaff  r read  d drop  bump folk  Q quit")
     stdscr.refresh()
 
 
@@ -415,6 +418,9 @@ def _handle_key(stdscr, game, key):
         return ("pickup", None)
     if ch == "i":
         _show_inventory(stdscr, game)
+        return None
+    if ch == "J":
+        _show_quests_curses(stdscr, game)
         return None
     if ch == "C":
         _show_character(stdscr, game)
@@ -606,6 +612,69 @@ def _show_character(stdscr, game):
     line("(press any key to return)")
     stdscr.refresh()
     stdscr.getch()
+
+
+def _show_quests_curses(stdscr, game):
+    from hollowreach.content.quests import QUESTS
+    from hollowreach.core.rules import quests as qrules
+    stdscr.erase()
+    _safe_add(stdscr, 0, 0, "Quest Journal   (any key to return)")
+    row = 2
+    active = [(q, s) for q, s in game.pc.quests.items() if s["state"] == "active"]
+    done = [q for q, s in game.pc.quests.items() if s["state"] == "done"]
+    if not active and not done:
+        _safe_add(stdscr, row, 2, "No quests — talk to the folk of Hearthvale.")
+    for qid, _s in active:
+        q = QUESTS[qid]
+        cur, need = qrules.progress(game.pc, q)
+        _safe_add(stdscr, row, 2, f"{q.title}  ({min(cur, need)}/{need})"); row += 1
+        _safe_add(stdscr, row, 4, q.description); row += 1
+    for qid in done:
+        _safe_add(stdscr, row, 2, f"[done] {QUESTS[qid].title}"); row += 1
+    stdscr.refresh()
+    stdscr.getch()
+
+
+def _shop_screen_curses(stdscr, game):
+    from hollowreach.core.rules import shop
+    mode = "buy"
+    while True:
+        stdscr.erase()
+        if mode == "buy":
+            rows = [(it, shop.buy_price(game.pc, it.base.price))
+                    for it in game.shop_stock]
+            _safe_add(stdscr, 0, 0, f"Bram's Wares — BUY   Gold: {game.pc.gold}"
+                      "   (Tab: sell, Esc: leave)")
+        else:
+            rows = [(it, shop.sell_price(game.pc, it.base.price))
+                    for _l, it in game.pc.inventory.listing()]
+            _safe_add(stdscr, 0, 0, f"SELL your pack   Gold: {game.pc.gold}"
+                      "   (Tab: buy, Esc: leave)")
+        letters = "abcdefghijklmnopqrstuvwxyz"
+        mapping = {}
+        for i, (it, price) in enumerate(rows[:24]):
+            mapping[letters[i]] = it
+            _safe_add(stdscr, i + 2, 2,
+                      f"{letters[i]}) {game.id_service.display_name(it)}  — {price} gold")
+        if not rows:
+            _safe_add(stdscr, 2, 2, "(nothing here)")
+        stdscr.refresh()
+        key = stdscr.getch()
+        if key == 27:            # Esc
+            return
+        if key == 9:             # Tab
+            mode = "sell" if mode == "buy" else "buy"
+            continue
+        try:
+            ch = chr(key)
+        except ValueError:
+            continue
+        it = mapping.get(ch)
+        if it is not None:
+            if mode == "buy":
+                game.buy_item(it)
+            else:
+                game.sell_item(it)
 
 
 def _flash(stdscr, message):

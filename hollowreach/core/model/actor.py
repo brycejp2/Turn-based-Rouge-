@@ -93,6 +93,10 @@ class Actor:
     monster_id: "str | None" = None
     encumbrance_penalty: int = 0        # speed lost to carry weight (§5.1)
 
+    # Townsfolk (non-hostile NPCs): a role drives what bumping them does.
+    npc_id: "str | None" = None
+    role: "str | None" = None          # "shopkeeper" | "quest_giver" | "folk"
+
     # -- scheduler contract ----------------------------------------------
     @property
     def speed(self) -> int:
