@@ -414,6 +414,8 @@ def _handle_key(stdscr, game, key):
         return ch
     if ch == "Q":
         return "QUIT"
+    if ch in ("p", "O"):        # pray / offer at an altar
+        return ch
     if ch in ("g", ","):
         return ("pickup", None)
     if ch == "i":
@@ -570,8 +572,10 @@ def _show_character(stdscr, game):
 
     line(f"{a.name} — level {a.char_level} {pc.race.name} {pc.cls.name} "
          f"(born under {pc.sign.name})")
-    line(f"Alignment: {pc.alignment}    XP: {pc.xp} "
-         f"(next level at {pc.xp_to_next_level()})")
+    line(f"XP: {pc.xp}  (next level at {pc.xp_to_next_level()})")
+    crown = "  — Champion" if pc.crowned else ""
+    line(f"Faith: {pc.alignment} ({pc.alignment_score:+d})   "
+         f"piety {pc.piety}{crown}")
     row += 1
     line("Attributes:")
     attr_str = "   ".join(f"{k} {a.attributes.value(k):>2}" for k in ATTRIBUTE_KEYS)

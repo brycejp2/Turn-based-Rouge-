@@ -33,9 +33,26 @@ WATER = TileType("water", "~", walkable=True, transparent=True, name="water")
 LAVA = TileType("lava", "&", walkable=True, transparent=True, name="lava")
 
 # Injected features (§4.3, §10.3) ------------------------------------
-ALTAR = TileType("altar", "_", walkable=True, transparent=True, name="altar")
+# Three aligned altars (§10.3): the tile type carries the deity's leaning.
+ALTAR_LAWFUL = TileType("altar_lawful", "_", walkable=True, transparent=True,
+                        name="marble altar")
+ALTAR_NEUTRAL = TileType("altar_neutral", "_", walkable=True, transparent=True,
+                         name="granite altar")
+ALTAR_CHAOTIC = TileType("altar_chaotic", "_", walkable=True, transparent=True,
+                         name="obsidian altar")
+ALTAR = ALTAR_NEUTRAL   # backwards-compatible alias
 FORGE = TileType("forge", "\\", walkable=True, transparent=True, name="forge")
 HERB_BUSH = TileType("herb_bush", "\"", walkable=True, transparent=True, name="herb bush")
+
+ALTARS = {"lawful": ALTAR_LAWFUL, "neutral": ALTAR_NEUTRAL,
+          "chaotic": ALTAR_CHAOTIC}
+ALTAR_ALIGN = {ALTAR_LAWFUL: "lawful", ALTAR_NEUTRAL: "neutral",
+               ALTAR_CHAOTIC: "chaotic"}
+
+
+def altar_alignment(t: "TileType") -> "str | None":
+    return ALTAR_ALIGN.get(t)
+
 
 # The endgame objective (§14): the Sundered Gate at the bottom of the Depths.
 GATE = TileType("gate", "0", walkable=True, transparent=True, name="Sundered Gate")
@@ -44,6 +61,7 @@ ALL_TILES = {
     t.key: t
     for t in [
         WALL, FLOOR, CORRIDOR, DOOR_CLOSED, DOOR_OPEN, STAIRS_DOWN,
-        STAIRS_UP, WATER, LAVA, ALTAR, FORGE, HERB_BUSH, GATE,
+        STAIRS_UP, WATER, LAVA, ALTAR_LAWFUL, ALTAR_NEUTRAL, ALTAR_CHAOTIC,
+        FORGE, HERB_BUSH, GATE,
     ]
 }

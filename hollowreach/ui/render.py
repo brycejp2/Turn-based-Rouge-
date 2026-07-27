@@ -60,11 +60,13 @@ def status_line(pc) -> str:
     blight = f"  Warps:{warps}" if warps else ""
     depth = a.level.depth if a.level else 0
     where = "Town" if depth == 0 else f"DL:{depth}"
+    crown = "*" if getattr(pc, "crowned", False) else ""
     return (
         f"{a.name}  L{a.char_level} {pc.race.name} {pc.cls.name}  "
         f"HP:{a.hp}/{a.max_hp}  PP:{a.pp}/{a.max_pp}  "
         f"DV:{a.dv} PV:{a.pv}  Sp:{a.speed}  "
         f"{where}  Gold:{getattr(pc, 'gold', 0)}  "
+        f"{pc.alignment[:3]}{crown} pty:{getattr(pc, 'piety', 0)}  "
         f"XP:{pc.xp}{blight}"
     )
 

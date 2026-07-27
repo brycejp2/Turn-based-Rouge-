@@ -96,7 +96,8 @@ class Game:
             level_rng = Rng(self.seed * 1000 + depth)
             if depth == 0:
                 from .core.generation.town import generate_town
-                self.levels[depth] = generate_town(level_rng)
+                self.levels[depth] = generate_town(
+                    level_rng, altar_align=self.pc.alignment)
             else:
                 self.levels[depth] = generate_level(
                     level_rng, depth=depth,
@@ -156,6 +157,7 @@ class Game:
                     self.scheduler.add(self.pc.actor, delay_cost=0)
                     return
                 self._advance_regen()
+                self._advance_piety()
                 self._advance_blight()
                 self._update_fov()
                 self.scheduler.reschedule(self.pc.actor, STANDARD_ACTION_COST)
@@ -207,8 +209,31 @@ class Game:
             return self._descend()
         if cmd == "<":
             return self._ascend()
+        if cmd == "p":
+            return self._pray()
+        if cmd == "O":
+            return self._offer()
         # Unknown command: no time passes.
         return False
+
+    # -- the divine economy (§10) ----------------------------------------
+    def _pray(self) -> bool:
+        from .core.rules import religion
+        for line in religion.pray(self):
+            self.log.add(line)
+        return True
+
+    def _offer(self) -> bool:
+        from .core.rules import religion
+        from .core.world import tile as tiles
+        pc = self.pc.actor
+        align = tiles.altar_alignment(self.levels[self.depth].tile(pc.x, pc.y))
+        if align is None:
+            self.log.add("You must stand at an altar to make an offering.")
+            return False
+        for line in religion.sacrifice_gold(self, align):
+            self.log.add(line)
+        return True
 
     # -- item actions (each returns True when it consumes a turn) ---------
     def pick_up(self) -> bool:
@@ -319,11 +344,26 @@ class Game:
     def drop_item(self, item) -> bool:
         if item is None:
             return False
-        removed = self.pc.inventory.remove(item)
+        from .core.world import tile as tiles
+        from .core.rules import religion
+        pc, a = self.pc, self.pc.actor
+        align = tiles.altar_alignment(self.levels[self.depth].tile(a.x, a.y))
+        removed = pc.inventory.remove(item)
         if removed is None:
             return False
-        self.levels[self.depth].add_item(self.pc.actor.x, self.pc.actor.y, removed)
-        self.pc.update_encumbrance()
+        if align is not None:
+            # Dropping on an altar reveals BUC for free, and on a co-aligned
+            # altar it's a sacrifice for piety (§10.2, §10.3).
+            removed.buc_known = True
+            if align == pc.alignment:
+                for line in religion.sacrifice_item(self, removed, align):
+                    self.log.add(line)
+                pc.update_encumbrance()
+                return True
+            self.log.add(f"The {removed.name} glows on the altar — you sense "
+                         f"it is {removed.buc}.")
+        self.levels[self.depth].add_item(a.x, a.y, removed)
+        pc.update_encumbrance()
         self.log.add(f"You drop {self.id_service.display_name(removed)}.")
         return True
 
@@ -398,8 +438,13 @@ class Game:
     def _describe_floor(self, level, x, y) -> None:
         t = level.tile(x, y)
         pile = level.items_at(x, y)
-        if t in (tiles.STAIRS_DOWN, tiles.STAIRS_UP, tiles.ALTAR,
-                 tiles.FORGE, tiles.HERB_BUSH):
+        align = tiles.altar_alignment(t)
+        if align is not None:
+            hint = " (yours — pray 'p', offer 'O')" if align == self.pc.alignment \
+                else " (a rival faith's)"
+            self.log.add(f"There is {_article(t.name)} here{hint}.")
+        elif t in (tiles.STAIRS_DOWN, tiles.STAIRS_UP, tiles.FORGE,
+                   tiles.HERB_BUSH):
             self.log.add(f"There is {_article(t.name)} here.")
         if pile:
             names = ", ".join(self.id_service.display_name(i) for i in pile)
@@ -476,6 +521,14 @@ class Game:
         if mdef is not None:
             for t in mdef.types:
                 self.pc.kills_by_type[t] += 1
+            # Slaying the chaotic and the hollowed pulls you lawful (§10.1).
+            from .core.rules import religion
+            if "hollowed" in mdef.types:
+                religion.shift_alignment(self.pc, 12)
+            elif mdef.alignment == "chaotic":
+                religion.shift_alignment(self.pc, 4)
+            elif mdef.alignment == "lawful":
+                religion.shift_alignment(self.pc, -4)
         base_gold = mdef.xp_value if mdef else 3
         gold = self.rng.randint(0, base_gold) + self.depth
         if gold > 0:
@@ -500,6 +553,13 @@ class Game:
 
     def _advance_regen(self) -> None:
         regen.advance_regen(self.pc)
+
+    def _advance_piety(self) -> None:
+        """Favour ebbs slowly — keep sacrificing (§10.2)."""
+        from .core.rules import religion
+        self.pc.turns += 1
+        if self.pc.turns % religion.PIETY_DECAY_TURNS == 0:
+            religion.decay_piety(self.pc)
 
     def _advance_blight(self) -> None:
         """Accrue the Hollowing for this turn and surface any Warps (§9)."""

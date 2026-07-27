@@ -28,7 +28,8 @@ def make_npc(npc_id: str) -> Actor:
     return actor
 
 
-def generate_town(rng: Rng, width: int = 70, height: int = 21) -> Level:
+def generate_town(rng: Rng, width: int = 70, height: int = 21,
+                  altar_align: str = "neutral") -> Level:
     level = Level(width, height, depth=0)
 
     # A handful of tidy buildings across the village.
@@ -54,6 +55,14 @@ def generate_town(rng: Rng, width: int = 70, height: int = 21) -> Level:
     level.set_tile(mx, my, tile.STAIRS_DOWN)
     level.stairs_down = (mx, my)
     level.stairs_up = None
+
+    # A shrine of the hero's faith stands in the village (§10.3), so the
+    # divine path is open from the very start.
+    if len(rooms) > 2:
+        shrine = rooms[1]
+        sx, sy = _free_floor(level, shrine, rng)
+        if level.tile(sx, sy) is tile.FLOOR:
+            level.set_tile(sx, sy, tile.ALTARS[altar_align])
 
     # Place the townsfolk, one per building near the front of the village.
     placements = ["maroc", "bram", "ferelith", "sarn"]

@@ -167,11 +167,12 @@ def _place_stairs(level: Level, rng: Rng, rooms: list[Room],
 
 def _inject_features(level: Level, rng: Rng, rooms: list[Room], depth: int) -> None:
     # Occasional altar / forge / herb bush, weighted low (§4.3, §10.3).
-    if rng.one_in(6) and len(rooms) > 2:
+    if rng.one_in(5) and len(rooms) > 2:
         room = rng.choice(rooms[1:-1])
         fx, fy = room.random_floor(rng)
         if level.tile(fx, fy) is tile.FLOOR:
-            level.set_tile(fx, fy, tile.ALTAR)
+            align = rng.choice(["lawful", "neutral", "chaotic"])
+            level.set_tile(fx, fy, tile.ALTARS[align])
     if rng.one_in(8) and len(rooms) > 2:
         room = rng.choice(rooms[1:-1])
         fx, fy = room.random_floor(rng)

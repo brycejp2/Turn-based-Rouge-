@@ -27,6 +27,7 @@ from ..generation.loot import make_item
 from ..rules.proficiency import Proficiencies
 from ..rules.classpowers import apply_level_powers
 from ..rules.skills import apply_skill_bonuses, gain_level_skills
+from ..rules import religion
 from ...content.spells import STARTING_SPELLS
 from ..engine.rng import Rng
 from ...content.races import RACES, RaceDef
@@ -57,8 +58,11 @@ class PlayerCharacter:
         self.gender = gender
         self.xp = 0
         self.skills: dict[str, int] = {}
+        # The divine economy (see core/rules/religion.py).
         self.piety = cls.start_piety
-        self.alignment = race.start_alignment
+        self.alignment_score = religion.ALIGN_START[race.start_alignment]
+        self.crowned = False
+        self.prayer_timer = 0
         self.monster_memory: dict[str, MemoryRecord] = {}
         self.turns = 0
         self.inventory = Inventory()
@@ -94,6 +98,11 @@ class PlayerCharacter:
             return True
         state["castings"] += castings
         return False
+
+    @property
+    def alignment(self) -> str:
+        """The lawful/neutral/chaotic band derived from the score (§10.1)."""
+        return religion.band(self.alignment_score)
 
     def refresh_combat(self) -> None:
         """Re-fold equipment, proficiency and skills into the actor's stats."""
@@ -204,8 +213,9 @@ def build_player(name: str, race_id: str, class_id: str, sign_id: str,
         actor.stoneskin = 3
 
     pc = PlayerCharacter(actor, race, cls, sign, gender)
-    # Omen regeneration bonus (e.g. the Beacon).
+    # Omen regeneration bonus (e.g. the Beacon) and lawful lean (the Tome).
     pc.regen_mult = sign.effects.get("hp_regen_mult", 1.0)
+    pc.alignment_score += sign.effects.get("alignment", 0)
     # Casters channel power back faster — without this a wizard casts two
     # spells and then waits out a hundred-turn drought.
     if cls.caster_type == "arcane":

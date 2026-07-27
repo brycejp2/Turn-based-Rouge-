@@ -43,7 +43,7 @@ python3 -m unittest discover -s tests -v
 
 In-game keys: arrows or `hjkl`/`yubn` move/attack, `>`/`<` stairs, `g` get,
 `i` inventory, `C` character, `J` quests, `z` cast, `w` wield/wear, `T` take off, `q` quaff,
-`r` read, `d` drop, `.` wait, `Q` quit.
+`r` read, `d` drop, `p` pray, `O` offer at altar, bump folk to talk/shop, `.` wait, `Q` quit.
 
 ### Play on Windows without Python — download the `.exe`
 
@@ -114,6 +114,20 @@ Save files live in `%USERPROFILE%\.hollowreach_saves\` (override with the
   per-run appearances until use-identified or read via a scroll of
   identify. Working consumables — healing, gain attributes, enchant
   weapon/armour, remove curse, magic mapping, teleport, and more.
+- **The divine economy** — the second progression track, and the
+  strategic counter to the Hollowing. **Alignment** is a live score
+  (slaying the chaotic and the hollowed pulls you lawful; corrupting
+  blows pull you chaotic). Three **altars** (marble / granite / obsidian
+  for lawful / neutral / chaotic) let you **sacrifice** gold and gear on
+  your own god's shrine for **piety** — and dropping an item on any altar
+  reveals its BUC. Spend piety by **praying** (`p`): a hurt hero is
+  healed, cursed gear is freed, and — crucially — a **Warped hero can
+  have the Hollowing eased from them**, making devotion a real
+  alternative to cure potions. Reach **extreme alignment** with deep
+  enough favour and prayer **crowns you a Champion**: permanently Blessed,
+  stat-boosted, and gifted (a chaotic crowning is a devil's bargain that
+  Warps you). A shrine of your faith stands in Hearthvale, so the path is
+  open from turn one; piety slowly ebbs, so keep the offerings coming.
 - **The surface hub — Hearthvale (town, NPCs, shops, quests, gold)** — a
   run begins in the safe village at the mouth of the Depths, and you can
   climb back to it between dives. **Bram the Trader** runs a shop: buy
@@ -162,7 +176,7 @@ hollowreach/
                     Item, Inventory, Equipment
   core/world/       Level (persistent grid + fog), tiles, FOV
   core/generation/  dungeon + town generators, loot rolls
-  core/rules/       combat, AI, calendar, id, consumables, blight, magic, shop, quests,
+  core/rules/       combat, AI, calendar, id, consumables, blight, magic, shop, quests, religion,
                     proficiency, class powers, skills, regen
   content/          world.py + data: ancestries, classes, omens, monsters, items, warps, spells, towns, quests
   ui/               ASCII renderer, 2D tile client (pygame_app + procedural tiles)
@@ -170,7 +184,7 @@ hollowreach/
   bootstrap.py      shared game construction
 main.py             entry point (tiles / --ascii / --demo)
 packaging/          PyInstaller spec + build scripts (-> Hollowreach.exe)
-tests/              126 unittest tests
+tests/              139 unittest tests
 docs/               DESIGN_MECHANICS.md (internal systems reference)
 ```
 
@@ -184,7 +198,7 @@ New content is data in `content/`; new systems are resolvers in
 2. ~~Skills + weapon proficiencies + the full class-power system~~ ✅ **done**
 3. ~~Magic (PP, spell knowledge/power, spell list)~~ ✅ **done** (mind powers still to do)
 4. ~~Overworld, towns/NPCs, shops, quests~~ ✅ **done** (Hearthvale hub)
-5. Altars / piety / alignment / prayer / crowning (the divine economy)
+5. ~~Altars / piety / alignment / prayer / crowning (the divine economy)~~ ✅ **done**
 6. ~~The corruption clock + mutation table + cures~~ ✅ **done** (the Hollowing / Blight)
 7. ~~The Sundered Depths spine, the boss, and the standard ending~~ ✅ **done** (winnable!)
 8. Remaining ancestries/classes/monsters/artifacts + alternate endings
@@ -198,7 +212,7 @@ New content is data in `content/`; new systems are resolvers in
 
 ## Testing
 
-`python3 -m unittest discover -s tests` runs 126 tests covering the dice
+`python3 -m unittest discover -s tests` runs 139 tests covering the dice
 engine, the energy-scheduler invariant, attribute clamping/potentials,
 DV/PV/combat formulas, character assembly, calendar/lighting, FOV, level
 connectivity & determinism, permadeath save consumption, the item system

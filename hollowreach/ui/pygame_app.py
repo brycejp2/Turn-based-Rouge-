@@ -166,13 +166,16 @@ def _draw_panel(surf, fonts, game):
     else:
         where = f"Depth {game.depth}"
     text(surf, ui, where, x, y, tiles.TEXT); y += 26
-    text(surf, small, f"Gold: {game.pc.gold}", x, y, (230, 200, 90)); y += 22
-    text(surf, small, game.calendar.describe(), x, y, tiles.TEXT_DIM); y += 26
+    text(surf, small, f"Gold: {game.pc.gold}", x, y, (230, 200, 90)); y += 20
+    crown = " (Champion)" if game.pc.crowned else ""
+    text(surf, small, f"{game.pc.alignment.title()}  piety {game.pc.piety}{crown}",
+         x, y, (170, 150, 210)); y += 22
+    text(surf, small, game.calendar.describe(), x, y, tiles.TEXT_DIM); y += 24
 
     y = WIN_H - 78
     text(surf, small, "g get  i inv  C sheet  J quests  z cast", x, y, tiles.TEXT_DIM); y += 18
     text(surf, small, "w wield  T off  q quaff  r read  d drop", x, y, tiles.TEXT_DIM); y += 18
-    text(surf, small, "bump folk to talk/shop", x, y, tiles.TEXT_DIM); y += 18
+    text(surf, small, "p pray  O offer (at altar)  bump folk", x, y, tiles.TEXT_DIM); y += 18
     text(surf, small, "> < stairs   . wait   Q quit", x, y, tiles.TEXT_DIM)
 
 
@@ -232,6 +235,9 @@ def draw_character(surf, fonts, game):
          f"— {pc.sign.name}", 20, y); y += 28
     text(box, small, f"XP {pc.xp}  (next level at {pc.xp_to_next_level()})",
          20, y); y += 24
+    faith = f"Faith: {pc.alignment} ({pc.alignment_score:+d})   piety {pc.piety}"
+    faith += "   — Champion" if pc.crowned else ""
+    text(box, small, faith, 20, y, (180, 160, 215)); y += 24
     attr = "   ".join(f"{k} {a.attributes.value(k)}" for k in ATTRIBUTE_KEYS)
     text(box, small, attr, 20, y); y += 26
     text(box, small, f"DV {a.dv}   PV {a.pv}   to-hit {a.melee_to_hit}   "
@@ -384,6 +390,10 @@ def _translate(event):
         return ("cast", None)
     if key == pygame.K_d:
         return ("select", "drop")
+    if key == pygame.K_p:
+        return ("cmd", "p")
+    if uni == "O":
+        return ("cmd", "O")
     if key == pygame.K_q and (event.mod & pygame.KMOD_SHIFT):
         return ("quit", None)
     return (None, None)

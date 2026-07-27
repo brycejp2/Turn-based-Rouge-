@@ -140,10 +140,15 @@ class TileAtlas:
             pygame.draw.circle(s, GATE_GLOW, (n // 2, n // 2), n // 2 - 2)
             pygame.draw.circle(s, GATE_RING, (n // 2, n // 2), n // 3)
             pygame.draw.circle(s, _lighten(GATE_GLOW), (n // 2, n // 2), n // 6)
-        elif key == "altar":
+        elif key.startswith("altar"):
             s.fill(FLOOR)
-            pygame.draw.rect(s, ALTAR, (n // 5, n // 3, 3 * n // 5, n // 2))
-            pygame.draw.rect(s, _darken(ALTAR), (n // 5, n // 3, 3 * n // 5, n // 2), 1)
+            col = {"altar_lawful": (225, 225, 235),
+                   "altar_neutral": (150, 150, 160),
+                   "altar_chaotic": (70, 60, 80)}.get(key, ALTAR)
+            pygame.draw.rect(s, col, (n // 5, n // 3, 3 * n // 5, n // 2))
+            pygame.draw.rect(s, _lighten(col, 1.2) if key == "altar_chaotic"
+                             else _darken(col),
+                             (n // 5, n // 3, 3 * n // 5, n // 2), 1)
         elif key == "forge":
             s.fill(FLOOR)
             pygame.draw.rect(s, FORGE, (n // 5, n // 4, 3 * n // 5, n // 2))
